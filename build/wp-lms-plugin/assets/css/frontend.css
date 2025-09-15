@@ -809,3 +809,42 @@
     white-space: nowrap;
     border: 0;
 }
+
+/* Login Required Section */
+.wp-lms-login-required {
+    text-align: center;
+    padding: 30px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.wp-lms-login-required p {
+    font-size: 16px;
+    color: #495057;
+    margin-bottom: 20px;
+}
+
+.wp-lms-auth-links {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.wp-lms-auth-links .wp-lms-btn {
+    min-width: 120px;
+}
+
+@media (max-width: 480px) {
+    .wp-lms-auth-links {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .wp-lms-auth-links .wp-lms-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}

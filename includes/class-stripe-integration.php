@@ -239,7 +239,26 @@ class WP_LMS_Stripe_Integration {
         }
         
         if (!$user_id) {
-            return '<p>' . __('Please log in to purchase this course.', 'wp-lms') . '</p>';
+            $login_url = wp_login_url(get_permalink());
+            $register_url = wp_registration_url();
+            
+            ob_start();
+            ?>
+            <div class="wp-lms-login-required">
+                <p><?php _e('Bitte melden Sie sich an, um diesen Kurs zu kaufen.', 'wp-lms'); ?></p>
+                <div class="wp-lms-auth-links">
+                    <a href="<?php echo esc_url($login_url); ?>" class="wp-lms-btn wp-lms-btn-primary">
+                        <?php _e('Anmelden', 'wp-lms'); ?>
+                    </a>
+                    <?php if (get_option('users_can_register')): ?>
+                        <a href="<?php echo esc_url($register_url); ?>" class="wp-lms-btn wp-lms-btn-secondary">
+                            <?php _e('Registrieren', 'wp-lms'); ?>
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php
+            return ob_get_clean();
         }
         
         // Check if user already purchased
