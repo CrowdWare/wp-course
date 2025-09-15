@@ -72,12 +72,12 @@ class WP_LMS_User_Progress {
         // Mark lesson as complete
         $this->database->update_lesson_progress($user_id, $course_id, $lesson_id, 0, true);
         
-        // Get updated progress
-        $completion_percentage = $this->database->get_course_completion_percentage($user_id, $course_id);
+        // Get updated progress using the same time-based calculation as get_course_progress
+        $progress_data = $this->get_detailed_course_progress($user_id, $course_id);
         
         wp_send_json_success(array(
             'completed' => true,
-            'course_completion' => $completion_percentage
+            'course_completion' => $progress_data['completion_percentage']
         ));
     }
     
@@ -86,36 +86,40 @@ class WP_LMS_User_Progress {
      */
     public function get_detailed_course_progress($user_id, $course_id) {
         $chapters = $this->get_course_chapters_with_progress($course_id, $user_id);
-        $completion_percentage = $this->database->get_course_completion_percentage($user_id, $course_id);
         
         $total_lessons = 0;
         $completed_lessons = 0;
-        $total_duration = 0;
-        $watched_duration = 0;
+        $total_video_time = 0;
+        $watched_video_time = 0;
         
         foreach ($chapters as $chapter) {
             foreach ($chapter->lessons as $lesson) {
                 $total_lessons++;
-                $duration = get_post_meta($lesson->ID, '_lesson_duration', true);
-                $total_duration += $duration;
+                $lesson_duration = get_post_meta($lesson->ID, '_lesson_duration', true);
+                $total_video_time += $lesson_duration;
                 
                 if ($lesson->progress) {
                     if ($lesson->progress->completed) {
                         $completed_lessons++;
                     }
-                    $watched_duration += ($lesson->progress->video_progress / 60); // Convert seconds to minutes
+                    // Add watched time (but cap at lesson duration)
+                    $watched_time = min($lesson->progress->video_progress, $lesson_duration);
+                    $watched_video_time += $watched_time;
                 }
             }
         }
+        
+        // Calculate completion percentage based on watched video time
+        $completion_percentage = $total_video_time > 0 ? ($watched_video_time / $total_video_time) * 100 : 0;
         
         return array(
             'chapters' => $chapters,
             'completion_percentage' => $completion_percentage,
             'total_lessons' => $total_lessons,
             'completed_lessons' => $completed_lessons,
-            'total_duration' => $total_duration,
-            'watched_duration' => $watched_duration,
-            'estimated_time_remaining' => max(0, $total_duration - $watched_duration)
+            'total_video_time' => $total_video_time,
+            'watched_video_time' => $watched_video_time,
+            'estimated_time_remaining' => max(0, ($total_video_time - $watched_video_time) / 60) // Convert to minutes
         );
     }
     

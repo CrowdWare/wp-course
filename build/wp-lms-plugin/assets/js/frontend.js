@@ -198,15 +198,25 @@
             // Set up video if available
             var video = document.getElementById('lesson-video');
             if (video && lessonData.video_url) {
+                // Set current video reference
+                this.currentVideo = video;
+                
+                // Bind video events for progress tracking
+                video.addEventListener('timeupdate', function() {
+                    WP_LMS_Frontend.handleVideoProgress(video);
+                });
+                
+                video.addEventListener('ended', function() {
+                    WP_LMS_Frontend.handleVideoEnded();
+                });
+                
                 // Auto-play if user preference allows
                 var playPromise = video.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(function(error) {
-                        console.log('Auto-play prevented:', error);
+                        // Auto-play prevented - this is normal browser behavior
                     });
                 }
-                
-                this.currentVideo = video;
             }
             
             // Create code section buttons
@@ -335,6 +345,10 @@
         
         // Update lesson progress
         updateProgress: function(lessonId, videoProgress) {
+            if (typeof wp_lms_ajax === 'undefined') {
+                return;
+            }
+            
             $.ajax({
                 url: wp_lms_ajax.ajax_url,
                 type: 'POST',
@@ -345,8 +359,12 @@
                     nonce: wp_lms_ajax.nonce
                 },
                 success: function(response) {
-                    if (response.success && response.data.completed) {
-                        WP_LMS_Frontend.updateLessonStatus(lessonId, 'completed');
+                    if (response.success) {
+                        if (response.data.completed) {
+                            WP_LMS_Frontend.updateLessonStatus(lessonId, 'completed');
+                        } else {
+                            WP_LMS_Frontend.updateLessonStatus(lessonId, 'in-progress');
+                        }
                     }
                 }
             });
@@ -365,8 +383,10 @@
                 success: function(response) {
                     if (response.success) {
                         WP_LMS_Frontend.updateLessonStatus(lessonId, 'completed');
-                        WP_LMS_Frontend.updateCourseProgress(response.data.course_completion);
                         WP_LMS_Frontend.showNotification('Lesson completed!', 'success');
+                        
+                        // Use the time-based calculation from the response
+                        WP_LMS_Frontend.updateCourseProgress(response.data.course_completion);
                     }
                 }
             });
@@ -470,7 +490,8 @@
                 progressData.chapters.forEach(function(chapter) {
                     chapter.lessons.forEach(function(lesson) {
                         if (lesson.progress) {
-                            var status = lesson.progress.completed ? 'completed' : 
+                            // Only mark as completed if actually completed in database
+                            var status = lesson.progress.completed == 1 ? 'completed' : 
                                         (lesson.progress.video_progress > 0 ? 'in-progress' : 'not-started');
                             WP_LMS_Frontend.updateLessonStatus(lesson.ID, status);
                         }
@@ -481,15 +502,32 @@
         
         // Get current course ID
         getCourseId: function() {
-            // Try to get from URL parameters or data attributes
-            var urlParams = new URLSearchParams(window.location.search);
-            var courseId = urlParams.get('course_id');
+            // Try to get from URL - extract from course URL pattern
+            var url = window.location.href;
+            var courseMatch = url.match(/\/course\/([^\/\?]+)/);
             
-            if (!courseId) {
-                courseId = $('.wp-lms-learning-interface').data('course-id');
+            if (courseMatch) {
+                // Get course ID from post name/slug - we need to get the actual post ID
+                // For now, let's try to extract from the page or use a different method
+                var courseId = $('.wp-lms-learning-interface').data('course-id');
+                if (courseId) {
+                    return courseId;
+                }
+                
+                // Alternative: get from URL parameters
+                var urlParams = new URLSearchParams(window.location.search);
+                courseId = urlParams.get('course_id');
+                if (courseId) {
+                    return courseId;
+                }
+                
+                // Last resort: try to get from page context
+                if (typeof wp_lms_ajax !== 'undefined' && wp_lms_ajax.course_id) {
+                    return wp_lms_ajax.course_id;
+                }
             }
             
-            return courseId;
+            return null;
         },
         
         // Show loading state

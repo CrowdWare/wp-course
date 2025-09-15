@@ -21,23 +21,34 @@ class WP_LMS_Frontend {
         add_action('wp_ajax_nopriv_get_lesson_data', array($this, 'get_lesson_data'));
         add_action('wp_ajax_update_lesson_progress', array($this, 'update_lesson_progress'));
         add_action('wp_ajax_nopriv_update_lesson_progress', array($this, 'update_lesson_progress'));
+        add_action('wp_ajax_wp_lms_test_connection', array($this, 'test_connection'));
+        add_action('wp_ajax_nopriv_wp_lms_test_connection', array($this, 'test_connection'));
+        add_action('wp_ajax_get_course_progress', array($this, 'get_course_progress'));
+        add_action('wp_ajax_nopriv_get_course_progress', array($this, 'get_course_progress'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_stripe_js'));
         add_action('wp_head', array($this, 'hide_course_meta'));
         // Removed template override - using CSS only to hide meta information
     }
     
     /**
-     * Enqueue Stripe.js
+     * Enqueue scripts and localize AJAX
      */
     public function enqueue_stripe_js() {
         if (is_singular('lms_course')) {
+            // Enqueue our frontend script first
+            wp_enqueue_script('wp-lms-frontend', plugin_dir_url(__FILE__) . '../assets/js/frontend.js', array('jquery'), '1.0', true);
+            
+            // Enqueue Stripe.js
             wp_enqueue_script('stripe-js', 'https://js.stripe.com/v3/', array(), null, true);
             
-            // Also localize script for AJAX
+            // Localize script for AJAX - this is crucial for progress tracking
+            global $post;
             wp_localize_script('wp-lms-frontend', 'wp_lms_ajax', array(
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('wp_lms_nonce'),
-                'stripe_publishable_key' => get_option('wp_lms_stripe_publishable_key', '')
+                'stripe_publishable_key' => get_option('wp_lms_stripe_publishable_key', ''),
+                'debug' => WP_DEBUG,
+                'course_id' => isset($post) ? $post->ID : null
             ));
         }
     }
@@ -220,8 +231,8 @@ class WP_LMS_Frontend {
             <div class="learning-content">
                 <div class="video-panel">
                     <div id="welcome-message" class="welcome-message">
-                        <h2><?php _e('Welcome to the Course!', 'wp-lms'); ?></h2>
-                        <p><?php _e('Select a lesson from the right panel to start learning.', 'wp-lms'); ?></p>
+                        <h2><?php _e('Willkommen zum Kurs!', 'wp-lms'); ?></h2>
+                        <p><?php _e('Wählen Sie eine Lektion aus dem rechten Panel, um mit dem Lernen zu beginnen.', 'wp-lms'); ?></p>
                     </div>
                     
                     <div id="video-container" style="display: none;">
@@ -369,8 +380,14 @@ class WP_LMS_Frontend {
         $course_id = get_post_meta($chapter_id, '_chapter_course_id', true);
         
         // Check if lesson is completed (90% watched)
-        $duration = get_post_meta($lesson_id, '_lesson_duration', true) * 60; // Convert to seconds
-        $completed = ($video_progress / $duration) >= 0.9;
+        $duration = get_post_meta($lesson_id, '_lesson_duration', true);
+        $completed = false;
+        
+        if ($duration > 0) {
+            // Duration is stored in seconds, video_progress is also in seconds
+            $completion_percentage = ($video_progress / $duration);
+            $completed = $completion_percentage >= 0.9;
+        }
         
         $this->database->update_lesson_progress($user_id, $course_id, $lesson_id, $video_progress, $completed);
         
@@ -421,6 +438,88 @@ class WP_LMS_Frontend {
         }
         
         return $chapters;
+    }
+    
+    /**
+     * Get course progress via AJAX
+     */
+    public function get_course_progress() {
+        check_ajax_referer('wp_lms_nonce', 'nonce');
+        
+        $course_id = intval($_POST['course_id']);
+        $user_id = get_current_user_id();
+        
+        if (!$user_id) {
+            wp_send_json_error('User not logged in.');
+            return;
+        }
+        
+        // Get all lessons in this course with their progress
+        $chapters = $this->get_course_chapters($course_id);
+        $total_video_time = 0;
+        $watched_video_time = 0;
+        $completed_lessons = 0;
+        $total_lessons = 0;
+        
+        foreach ($chapters as &$chapter) {
+            foreach ($chapter->lessons as &$lesson) {
+                $total_lessons++;
+                $lesson_duration = get_post_meta($lesson->ID, '_lesson_duration', true);
+                $total_video_time += $lesson_duration;
+                
+                // Get progress for this lesson
+                global $wpdb;
+                $progress_table = $wpdb->prefix . 'lms_user_progress';
+                $progress = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM $progress_table WHERE user_id = %d AND lesson_id = %d",
+                    $user_id, $lesson->ID
+                ));
+                
+                if ($progress) {
+                    $lesson->progress = array(
+                        'video_progress' => $progress->video_progress,
+                        'completed' => $progress->completed,
+                        'last_accessed' => $progress->last_accessed
+                    );
+                    
+                    // Add watched time (but cap at lesson duration)
+                    $watched_time = min($progress->video_progress, $lesson_duration);
+                    $watched_video_time += $watched_time;
+                    
+                    if ($progress->completed) {
+                        $completed_lessons++;
+                    }
+                } else {
+                    $lesson->progress = null;
+                }
+            }
+        }
+        
+        // Calculate completion percentage based on watched video time
+        $completion_percentage = $total_video_time > 0 ? ($watched_video_time / $total_video_time) * 100 : 0;
+        
+        wp_send_json_success(array(
+            'chapters' => $chapters,
+            'completion_percentage' => $completion_percentage,
+            'total_lessons' => $total_lessons,
+            'completed_lessons' => $completed_lessons,
+            'total_video_time' => $total_video_time,
+            'watched_video_time' => $watched_video_time
+        ));
+    }
+    
+    /**
+     * Test connection via AJAX
+     */
+    public function test_connection() {
+        check_ajax_referer('wp_lms_nonce', 'nonce');
+        
+        wp_send_json_success(array(
+            'message' => 'WP LMS AJAX connection working!',
+            'timestamp' => current_time('mysql'),
+            'user_id' => get_current_user_id(),
+            'debug' => WP_DEBUG
+        ));
     }
     
     /**

@@ -3,7 +3,7 @@
  * Plugin Name: WP LMS Plugin
  * Plugin URI: https://example.com/wp-lms-plugin
  * Description: A comprehensive Learning Management System for WordPress with video lessons, code sections, and WASM integration.
- * Version: 1.0.54
+ * Version: 1.0.69
  * Author: Your Name
  * License: GPL v2 or later
  * Text Domain: wp-lms
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 // Define plugin constants
 define('WP_LMS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WP_LMS_PLUGIN_PATH', plugin_dir_path(__FILE__));
-define('WP_LMS_VERSION', '1.0.54');
+define('WP_LMS_VERSION', '1.0.69');
 
 // Main plugin class
 class WP_LMS_Plugin {
@@ -61,6 +61,7 @@ class WP_LMS_Plugin {
     }
     
     public function enqueue_scripts() {
+        // Always enqueue on frontend for debugging
         wp_enqueue_script('wp-lms-frontend', WP_LMS_PLUGIN_URL . 'assets/js/frontend.js', array('jquery'), WP_LMS_VERSION, true);
         wp_enqueue_style('wp-lms-frontend', WP_LMS_PLUGIN_URL . 'assets/css/frontend.css', array(), WP_LMS_VERSION);
         
@@ -68,12 +69,16 @@ class WP_LMS_Plugin {
         wp_enqueue_script('prism-js', WP_LMS_PLUGIN_URL . 'assets/js/prism.js', array(), WP_LMS_VERSION, true);
         wp_enqueue_style('prism-css', WP_LMS_PLUGIN_URL . 'assets/css/prism.css', array(), WP_LMS_VERSION);
         
-        // Localize script for AJAX
+        // Always localize script for AJAX - available on all pages for debugging
         wp_localize_script('wp-lms-frontend', 'wp_lms_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('wp_lms_nonce'),
-            'stripe_publishable_key' => get_option('wp_lms_stripe_publishable_key', '')
+            'stripe_publishable_key' => get_option('wp_lms_stripe_publishable_key', ''),
+            'debug' => WP_DEBUG,
+            'current_page' => get_post_type(),
+            'is_course_page' => is_singular('lms_course')
         ));
+        
     }
     
     public function admin_enqueue_scripts() {

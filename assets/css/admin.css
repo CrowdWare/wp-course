@@ -358,10 +358,106 @@
 .progress-stats p {
     margin: 8px 0;
     font-size: 14px;
+    color: #1d2327 !important;
 }
 
 .progress-stats strong {
-    color: #1d2327;
+    color: #1d2327 !important;
+    font-weight: 600;
+}
+
+/* Admin Dashboard Statistics - Fix visibility issues */
+.wp-lms-admin-dashboard .progress-stats p {
+    color: #1d2327 !important;
+    background: transparent !important;
+}
+
+.wp-lms-admin-dashboard .dashboard-widget p {
+    color: #1d2327 !important;
+    margin: 8px 0;
+}
+
+.wp-lms-admin-dashboard .dashboard-widget strong {
+    color: #2271b1 !important;
+    font-weight: 600;
+}
+
+/* Specific fixes for stat numbers */
+.dashboard-widget .stat-number {
+    color: #2271b1 !important;
+    background: transparent !important;
+}
+
+.dashboard-widget .stat-label {
+    color: #646970 !important;
+    background: transparent !important;
+}
+
+/* Ensure dashboard widget content is visible */
+.dashboard-widget p,
+.dashboard-widget span,
+.dashboard-widget div,
+.dashboard-widget .stat-number,
+.dashboard-widget .stat-label {
+    color: #1d2327 !important;
+}
+
+/* Override any theme styles that might interfere - FORCE VISIBILITY */
+.wp-lms-admin-dashboard .dashboard-widget .stat-number,
+.dashboard-widget .stat-number,
+.stats-grid .stat-number,
+div.stat-number {
+    color: #2271b1 !important;
+    font-size: 24px !important;
+    font-weight: bold !important;
+    background: white !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+}
+
+.wp-lms-admin-dashboard .dashboard-widget .stat-label,
+.dashboard-widget .stat-label,
+.stats-grid .stat-label,
+div.stat-label {
+    color: #646970 !important;
+    font-size: 12px !important;
+    background: white !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+}
+
+/* Force visibility for progress stats text */
+.wp-lms-admin-dashboard .progress-stats p,
+.wp-lms-admin-dashboard .progress-stats strong {
+    color: #1d2327 !important;
+    background: white !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Table visibility fixes */
+.dashboard-widget .wp-list-table th,
+.dashboard-widget .wp-list-table td {
+    color: #1d2327 !important;
+    background: white !important;
+}
+
+/* Stats grid specific fixes */
+.stats-grid .stat-item {
+    background: #f6f7f7 !important;
+}
+
+.stats-grid .stat-number {
+    color: #2271b1 !important;
+}
+
+.stats-grid .stat-label {
+    color: #646970 !important;
 }
 
 /* Responsive Design */

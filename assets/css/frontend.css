@@ -369,7 +369,9 @@
 
 .lesson-status {
     margin-left: 10px;
-    font-size: 12px;
+    font-size: 16px;
+    min-width: 20px;
+    text-align: center;
 }
 
 /* Overlay Panels */
