@@ -205,38 +205,68 @@ class WP_LMS_Database {
     /**
      * Update user lesson progress
      */
-    public function update_lesson_progress($user_id, $course_id, $lesson_id, $video_progress = 0, $completed = false) {
+    public function update_lesson_progress($user_id, $course_id, $lesson_id, $video_progress = 0, $completed = null) {
         global $wpdb;
         
         $table_progress = $wpdb->prefix . 'lms_user_progress';
+        
+        $existing = $this->get_user_lesson_progress($user_id, $lesson_id);
         
         $data = array(
             'user_id' => $user_id,
             'course_id' => $course_id,
             'lesson_id' => $lesson_id,
-            'video_progress' => $video_progress,
-            'completed' => $completed ? 1 : 0
+            'video_progress' => $video_progress
         );
         
-        if ($completed) {
-            $data['completed_at'] = current_time('mysql');
+        // Only update completed status if explicitly provided
+        if ($completed !== null) {
+            $data['completed'] = $completed ? 1 : 0;
+            
+            // Set completion timestamp when marking as complete
+            if ($completed) {
+                $data['completed_at'] = current_time('mysql');
+            }
+        } else if ($existing && $existing->completed) {
+            // Preserve existing completed status if not explicitly changing it
+            $data['completed'] = 1;
+            // Keep existing completion timestamp
+            if ($existing->completed_at) {
+                $data['completed_at'] = $existing->completed_at;
+            }
+        } else {
+            // Default to not completed for new records
+            $data['completed'] = 0;
         }
         
-        $existing = $this->get_user_lesson_progress($user_id, $lesson_id);
-        
         if ($existing) {
+            // For updates, only include fields that should be updated
+            $update_data = array(
+                'video_progress' => $video_progress
+            );
+            
+            // Only update completed status if explicitly provided or preserving existing
+            if ($completed !== null) {
+                $update_data['completed'] = $completed ? 1 : 0;
+                if ($completed) {
+                    $update_data['completed_at'] = current_time('mysql');
+                }
+            }
+            // If completed is null and existing is completed, preserve it (don't update)
+            
             return $wpdb->update(
                 $table_progress,
-                $data,
+                $update_data,
                 array('user_id' => $user_id, 'lesson_id' => $lesson_id),
-                array('%d', '%d', '%d', '%d', '%d'),
+                array('%d', '%d', '%s'),
                 array('%d', '%d')
             );
         } else {
+            // For new records, include all data
             return $wpdb->insert(
                 $table_progress,
                 $data,
-                array('%d', '%d', '%d', '%d', '%d')
+                array('%d', '%d', '%d', '%d', '%d', '%s')
             );
         }
     }

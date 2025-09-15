@@ -343,7 +343,7 @@
             }
         },
         
-        // Update lesson progress
+        // Update lesson progress (video progress only, preserves completion status)
         updateProgress: function(lessonId, videoProgress) {
             if (typeof wp_lms_ajax === 'undefined') {
                 return;
@@ -360,11 +360,16 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        if (response.data.completed) {
-                            WP_LMS_Frontend.updateLessonStatus(lessonId, 'completed');
-                        } else {
-                            WP_LMS_Frontend.updateLessonStatus(lessonId, 'in-progress');
+                        // Only update status if lesson is not already completed
+                        var currentStatus = $('#status-' + lessonId + ' .status-icon');
+                        if (!currentStatus.hasClass('completed')) {
+                            if (response.data.completed) {
+                                WP_LMS_Frontend.updateLessonStatus(lessonId, 'completed');
+                            } else if (videoProgress > 0) {
+                                WP_LMS_Frontend.updateLessonStatus(lessonId, 'in-progress');
+                            }
                         }
+                        // If already completed, don't change the status
                     }
                 }
             });

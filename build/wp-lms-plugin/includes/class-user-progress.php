@@ -16,6 +16,8 @@ class WP_LMS_User_Progress {
         
         add_action('wp_ajax_get_course_progress', array($this, 'get_course_progress'));
         add_action('wp_ajax_nopriv_get_course_progress', array($this, 'get_course_progress'));
+        add_action('wp_ajax_update_lesson_progress', array($this, 'update_lesson_progress_ajax'));
+        add_action('wp_ajax_nopriv_update_lesson_progress', array($this, 'update_lesson_progress_ajax'));
         add_action('wp_ajax_mark_lesson_complete', array($this, 'mark_lesson_complete'));
         add_action('wp_ajax_nopriv_mark_lesson_complete', array($this, 'mark_lesson_complete'));
         add_shortcode('lms_user_progress', array($this, 'user_progress_shortcode'));
@@ -44,6 +46,46 @@ class WP_LMS_User_Progress {
         $progress_data = $this->get_detailed_course_progress($user_id, $course_id);
         
         wp_send_json_success($progress_data);
+    }
+    
+    /**
+     * Update lesson progress (video progress only) via AJAX
+     */
+    public function update_lesson_progress_ajax() {
+        check_ajax_referer('wp_lms_nonce', 'nonce');
+        
+        $lesson_id = intval($_POST['lesson_id']);
+        $video_progress = intval($_POST['video_progress']);
+        $user_id = get_current_user_id();
+        
+        if (!$user_id) {
+            wp_send_json_error('User not logged in.');
+            return;
+        }
+        
+        // Get course ID
+        $chapter_id = get_post_meta($lesson_id, '_lesson_chapter_id', true);
+        $course_id = get_post_meta($chapter_id, '_chapter_course_id', true);
+        
+        if (!$this->database->has_user_purchased_course($user_id, $course_id)) {
+            wp_send_json_error('Access denied.');
+            return;
+        }
+        
+        // Update video progress only (completed status is preserved)
+        $this->database->update_lesson_progress($user_id, $course_id, $lesson_id, $video_progress, null);
+        
+        // Check if lesson should be marked as completed based on video progress
+        $lesson_duration = get_post_meta($lesson_id, '_lesson_duration', true);
+        $completion_threshold = $lesson_duration * 0.9; // 90% threshold
+        
+        $is_completed = ($video_progress >= $completion_threshold);
+        
+        wp_send_json_success(array(
+            'completed' => $is_completed,
+            'video_progress' => $video_progress,
+            'lesson_duration' => $lesson_duration
+        ));
     }
     
     /**
