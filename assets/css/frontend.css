@@ -837,6 +837,134 @@
     min-width: 120px;
 }
 
+/* Guest Purchase Section */
+.wp-lms-guest-purchase-section {
+    margin: 20px 0;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #f9f9f9;
+}
+
+.wp-lms-guest-purchase-section .course-price {
+    text-align: center;
+    font-size: 32px;
+    font-weight: bold;
+    color: #007cba;
+    margin-bottom: 30px;
+}
+
+.purchase-options {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 30px;
+    margin-bottom: 20px;
+}
+
+.guest-purchase-option {
+    padding: 20px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.guest-purchase-option h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.guest-purchase-option p {
+    color: #666;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.email-input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.email-input-section input[type="email"] {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.email-input-section input[type="email"]:focus {
+    outline: none;
+    border-color: #007cba;
+    box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2);
+}
+
+.login-option {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.login-option p {
+    margin: 0 0 15px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+#wp-lms-guest-payment-form {
+    background: white;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    margin-top: 20px;
+}
+
+.payment-details {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.payment-details h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 16px;
+}
+
+.customer-email {
+    color: #666;
+    font-size: 14px;
+}
+
+.payment-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+    .purchase-options {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .payment-actions {
+        flex-direction: column;
+    }
+    
+    .payment-actions .wp-lms-btn {
+        width: 100%;
+    }
+}
+
 @media (max-width: 480px) {
     .wp-lms-auth-links {
         flex-direction: column;
@@ -846,5 +974,19 @@
     .wp-lms-auth-links .wp-lms-btn {
         width: 100%;
         max-width: 200px;
+    }
+    
+    .wp-lms-guest-purchase-section {
+        padding: 15px;
+    }
+    
+    .wp-lms-guest-purchase-section .course-price {
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
+    
+    .guest-purchase-option,
+    .login-option {
+        padding: 15px;
     }
 }
