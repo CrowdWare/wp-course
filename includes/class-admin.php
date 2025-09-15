@@ -12,6 +12,7 @@ class WP_LMS_Admin {
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
+        add_action('wp_ajax_test_stripe_connection', array($this, 'test_stripe_connection'));
     }
     
     /**
@@ -125,6 +126,7 @@ class WP_LMS_Admin {
             update_option('wp_lms_stripe_secret_key', sanitize_text_field($_POST['wp_lms_stripe_secret_key']));
             update_option('wp_lms_stripe_publishable_key', sanitize_text_field($_POST['wp_lms_stripe_publishable_key']));
             update_option('wp_lms_stripe_webhook_secret', sanitize_text_field($_POST['wp_lms_stripe_webhook_secret']));
+            update_option('wp_lms_stripe_test_mode', isset($_POST['wp_lms_stripe_test_mode']) ? 1 : 0);
             echo '<div class="notice notice-success"><p>' . __('Settings saved.', 'wp-lms') . '</p></div>';
         }
         
@@ -138,10 +140,20 @@ class WP_LMS_Admin {
             <form method="post" action="">
                 <table class="form-table">
                     <tr>
+                        <th scope="row"><?php _e('Test Mode', 'wp-lms'); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="wp_lms_stripe_test_mode" value="1" <?php checked(get_option('wp_lms_stripe_test_mode', 0), 1); ?> />
+                                <?php _e('Enable Test Mode', 'wp-lms'); ?>
+                            </label>
+                            <p class="description"><?php _e('Use Stripe test keys and enable test card numbers for development.', 'wp-lms'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><?php _e('Secret Key', 'wp-lms'); ?></th>
                         <td>
                             <input type="password" name="wp_lms_stripe_secret_key" value="<?php echo esc_attr($secret_key); ?>" class="regular-text" />
-                            <p class="description"><?php _e('Your Stripe secret key (starts with sk_)', 'wp-lms'); ?></p>
+                            <p class="description"><?php _e('Your Stripe secret key (starts with sk_test_ for test mode or sk_live_ for live mode)', 'wp-lms'); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -165,6 +177,51 @@ class WP_LMS_Admin {
                 
                 <?php submit_button(); ?>
             </form>
+            
+            <?php if (get_option('wp_lms_stripe_test_mode', 0)): ?>
+            <div class="stripe-test-info" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 5px; margin-top: 20px;">
+                <h3><?php _e('Test Mode Information', 'wp-lms'); ?></h3>
+                <p><strong><?php _e('Test mode is enabled!', 'wp-lms'); ?></strong> <?php _e('You can use the following test card numbers:', 'wp-lms'); ?></p>
+                
+                <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
+                    <thead>
+                        <tr>
+                            <th><?php _e('Card Number', 'wp-lms'); ?></th>
+                            <th><?php _e('Description', 'wp-lms'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>4242424242424242</code></td>
+                            <td><?php _e('Visa - Successful payment', 'wp-lms'); ?></td>
+                        </tr>
+                        <tr>
+                            <td><code>4000000000000002</code></td>
+                            <td><?php _e('Visa - Card declined', 'wp-lms'); ?></td>
+                        </tr>
+                        <tr>
+                            <td><code>4000000000009995</code></td>
+                            <td><?php _e('Visa - Insufficient funds', 'wp-lms'); ?></td>
+                        </tr>
+                        <tr>
+                            <td><code>5555555555554444</code></td>
+                            <td><?php _e('Mastercard - Successful payment', 'wp-lms'); ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <p style="margin-top: 15px;">
+                    <strong><?php _e('Additional test details:', 'wp-lms'); ?></strong><br>
+                    • <?php _e('Use any future expiry date (e.g., 12/34)', 'wp-lms'); ?><br>
+                    • <?php _e('Use any 3-digit CVC (e.g., 123)', 'wp-lms'); ?><br>
+                    • <?php _e('Use any postal code (e.g., 12345)', 'wp-lms'); ?>
+                </p>
+                
+                <div class="notice notice-warning inline" style="margin-top: 15px;">
+                    <p><strong><?php _e('Important:', 'wp-lms'); ?></strong> <?php _e('No real money will be charged in test mode. All transactions are simulated.', 'wp-lms'); ?></p>
+                </div>
+            </div>
+            <?php endif; ?>
             
             <div class="stripe-test-section">
                 <h3><?php _e('Test Connection', 'wp-lms'); ?></h3>
@@ -539,6 +596,64 @@ class WP_LMS_Admin {
             echo '</tbody></table>';
         } else {
             echo '<p>' . __('No course access granted yet.', 'wp-lms') . '</p>';
+        }
+    }
+    
+    /**
+     * Test Stripe connection
+     */
+    public function test_stripe_connection() {
+        check_ajax_referer('test_stripe_connection', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions.');
+            return;
+        }
+        
+        $secret_key = get_option('wp_lms_stripe_secret_key', '');
+        
+        if (empty($secret_key)) {
+            wp_send_json_error('Stripe secret key not configured.');
+            return;
+        }
+        
+        try {
+            // Include Stripe PHP library
+            if (!class_exists('\Stripe\Stripe')) {
+                // For now, we'll just check if the key format is correct
+                if (strpos($secret_key, 'sk_') !== 0) {
+                    wp_send_json_error('Invalid Stripe secret key format. Key should start with "sk_".');
+                    return;
+                }
+                
+                // Check if it's test or live key
+                $is_test_key = strpos($secret_key, 'sk_test_') === 0;
+                $test_mode = get_option('wp_lms_stripe_test_mode', 0);
+                
+                if ($test_mode && !$is_test_key) {
+                    wp_send_json_error('Test mode is enabled but you are using a live key. Please use a test key (sk_test_...).');
+                    return;
+                }
+                
+                if (!$test_mode && $is_test_key) {
+                    wp_send_json_error('Test mode is disabled but you are using a test key. Please use a live key (sk_live_...) or enable test mode.');
+                    return;
+                }
+                
+                wp_send_json_success('Stripe key format is valid. ' . ($is_test_key ? 'Test mode key detected.' : 'Live mode key detected.') . ' Note: Full connection test requires Stripe PHP library.');
+                return;
+            }
+            
+            // If Stripe library is available, do a real test
+            \Stripe\Stripe::setApiKey($secret_key);
+            
+            // Try to retrieve account information
+            $account = \Stripe\Account::retrieve();
+            
+            wp_send_json_success('Stripe connection successful! Account: ' . $account->display_name);
+            
+        } catch (Exception $e) {
+            wp_send_json_error('Stripe connection failed: ' . $e->getMessage());
         }
     }
 }

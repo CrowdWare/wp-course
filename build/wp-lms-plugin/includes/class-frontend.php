@@ -32,6 +32,13 @@ class WP_LMS_Frontend {
     public function enqueue_stripe_js() {
         if (is_singular('lms_course')) {
             wp_enqueue_script('stripe-js', 'https://js.stripe.com/v3/', array(), null, true);
+            
+            // Also localize script for AJAX
+            wp_localize_script('wp-lms-frontend', 'wp_lms_ajax', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('wp_lms_nonce'),
+                'stripe_publishable_key' => get_option('wp_lms_stripe_publishable_key', '')
+            ));
         }
     }
     

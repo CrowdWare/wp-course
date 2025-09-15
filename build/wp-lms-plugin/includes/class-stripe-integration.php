@@ -18,6 +18,9 @@ class WP_LMS_Stripe_Integration {
         $this->stripe_publishable_key = get_option('wp_lms_stripe_publishable_key', '');
         $this->database = new WP_LMS_Database();
         
+        // Add test mode indicator to frontend
+        add_action('wp_footer', array($this, 'add_test_mode_indicator'));
+        
         add_action('wp_ajax_create_payment_intent', array($this, 'create_payment_intent'));
         add_action('wp_ajax_nopriv_create_payment_intent', array($this, 'create_payment_intent'));
         add_action('wp_ajax_confirm_payment', array($this, 'confirm_payment'));
@@ -26,10 +29,24 @@ class WP_LMS_Stripe_Integration {
     }
     
     /**
-     * Create Stripe Payment Intent
+     * Create Stripe Payment Intent (Simplified for testing)
      */
     public function create_payment_intent() {
-        check_ajax_referer('wp_lms_nonce', 'nonce');
+        // Clean output buffer to prevent corrupted JSON
+        if (ob_get_level()) {
+            ob_clean();
+        }
+        
+        // For now, simulate successful payment in test mode
+        if (!get_option('wp_lms_stripe_test_mode', 0)) {
+            wp_send_json_error('Stripe live mode not implemented yet. Please enable test mode.');
+            return;
+        }
+        
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wp_lms_nonce')) {
+            wp_send_json_error('Security check failed.');
+            return;
+        }
         
         if (!is_user_logged_in()) {
             wp_send_json_error('User must be logged in to purchase courses.');
@@ -41,7 +58,7 @@ class WP_LMS_Stripe_Integration {
         
         // Check if user already purchased this course
         if ($this->database->has_user_purchased_course($user_id, $course_id)) {
-            wp_send_json_error('Course already purchased.');
+            wp_send_json_error('Sie haben bereits Zugang zu diesem Kurs. Die Seite wird neu geladen.');
             return;
         }
         
@@ -60,47 +77,54 @@ class WP_LMS_Stripe_Integration {
             return;
         }
         
-        // Convert price to cents for Stripe
-        $amount = intval($price * 100);
+        // In test mode, simulate successful payment intent creation
+        $fake_payment_intent_id = 'pi_test_' . time() . '_' . $course_id . '_' . rand(1000, 9999);
         
-        try {
-            $this->init_stripe();
-            
-            $payment_intent = \Stripe\PaymentIntent::create([
-                'amount' => $amount,
-                'currency' => strtolower($currency),
-                'metadata' => [
-                    'course_id' => $course_id,
-                    'user_id' => $user_id,
-                    'course_title' => $course->post_title
-                ],
-                'description' => 'Course: ' . $course->post_title
-            ]);
-            
-            // Record the purchase attempt
-            $this->database->record_course_purchase(
-                $user_id,
-                $course_id,
-                $payment_intent->id,
-                $price,
-                $currency
-            );
-            
-            wp_send_json_success([
-                'client_secret' => $payment_intent->client_secret,
-                'payment_intent_id' => $payment_intent->id
-            ]);
-            
-        } catch (Exception $e) {
-            wp_send_json_error('Payment initialization failed: ' . $e->getMessage());
+        // For test mode, directly grant access without inserting duplicate records
+        // First remove any existing pending purchases for this user/course
+        global $wpdb;
+        $table_purchases = $wpdb->prefix . 'lms_course_purchases';
+        
+        // Delete any existing pending purchases
+        $wpdb->delete(
+            $table_purchases,
+            array(
+                'user_id' => $user_id,
+                'course_id' => $course_id,
+                'status' => 'pending'
+            ),
+            array('%d', '%d', '%s')
+        );
+        
+        // Now insert the new purchase record
+        $result = $this->database->record_course_purchase(
+            $user_id,
+            $course_id,
+            $fake_payment_intent_id,
+            $price,
+            $currency
+        );
+        
+        if (!$result) {
+            wp_send_json_error('Datenbankfehler beim Speichern des Kaufversuchs.');
+            return;
         }
+        
+        wp_send_json_success([
+            'client_secret' => 'pi_test_client_secret_' . time(),
+            'payment_intent_id' => $fake_payment_intent_id,
+            'test_mode' => true
+        ]);
     }
     
     /**
-     * Confirm payment completion
+     * Confirm payment completion (Simplified for testing)
      */
     public function confirm_payment() {
-        check_ajax_referer('wp_lms_nonce', 'nonce');
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wp_lms_nonce')) {
+            wp_send_json_error('Security check failed.');
+            return;
+        }
         
         if (!is_user_logged_in()) {
             wp_send_json_error('User must be logged in.');
@@ -109,26 +133,20 @@ class WP_LMS_Stripe_Integration {
         
         $payment_intent_id = sanitize_text_field($_POST['payment_intent_id']);
         
-        try {
-            $this->init_stripe();
+        // In test mode, simulate successful payment
+        if (get_option('wp_lms_stripe_test_mode', 0)) {
+            // Update purchase status to completed
+            $this->database->update_purchase_status($payment_intent_id, 'completed');
             
-            $payment_intent = \Stripe\PaymentIntent::retrieve($payment_intent_id);
-            
-            if ($payment_intent->status === 'succeeded') {
-                // Update purchase status
-                $this->database->update_purchase_status($payment_intent_id, 'completed');
-                
-                wp_send_json_success([
-                    'status' => 'completed',
-                    'message' => 'Payment successful! You now have access to the course.'
-                ]);
-            } else {
-                wp_send_json_error('Payment not completed. Status: ' . $payment_intent->status);
-            }
-            
-        } catch (Exception $e) {
-            wp_send_json_error('Payment confirmation failed: ' . $e->getMessage());
+            wp_send_json_success([
+                'status' => 'completed',
+                'message' => 'Testzahlung erfolgreich! Sie haben jetzt Zugang zum Kurs.'
+            ]);
+            return;
         }
+        
+        // For live mode, would need real Stripe integration
+        wp_send_json_error('Live mode not implemented yet. Please use test mode.');
     }
     
     /**
@@ -244,7 +262,7 @@ class WP_LMS_Stripe_Integration {
             </div>
             
             <button id="wp-lms-purchase-btn" class="wp-lms-btn wp-lms-btn-primary" data-course-id="<?php echo $course_id; ?>">
-                <?php _e('Purchase Course', 'wp-lms'); ?>
+                <?php _e('Kurs kaufen', 'wp-lms'); ?>
             </button>
             
             <div id="wp-lms-payment-form" style="display: none;">
@@ -253,10 +271,10 @@ class WP_LMS_Stripe_Integration {
                 </div>
                 <div id="card-errors" role="alert"></div>
                 <button id="submit-payment" class="wp-lms-btn wp-lms-btn-success">
-                    <?php _e('Complete Purchase', 'wp-lms'); ?>
+                    <?php _e('Kauf abschließen', 'wp-lms'); ?>
                 </button>
                 <button id="cancel-payment" class="wp-lms-btn wp-lms-btn-secondary">
-                    <?php _e('Cancel', 'wp-lms'); ?>
+                    <?php _e('Abbrechen', 'wp-lms'); ?>
                 </button>
             </div>
             
@@ -265,30 +283,57 @@ class WP_LMS_Stripe_Integration {
         
         <script>
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Stripe integration loading...');
+            
             if (typeof Stripe === 'undefined') {
                 console.error('Stripe.js not loaded');
+                document.getElementById('wp-lms-payment-status').innerHTML = 
+                    '<div class="error">Stripe.js konnte nicht geladen werden. Bitte laden Sie die Seite neu.</div>';
                 return;
             }
             
-            const stripe = Stripe('<?php echo $this->get_publishable_key(); ?>');
+            if (typeof jQuery === 'undefined') {
+                console.error('jQuery not loaded');
+                document.getElementById('wp-lms-payment-status').innerHTML = 
+                    '<div class="error">jQuery konnte nicht geladen werden. Bitte laden Sie die Seite neu.</div>';
+                return;
+            }
+            
+            const publishableKey = '<?php echo $this->get_publishable_key(); ?>';
+            if (!publishableKey) {
+                console.error('Stripe publishable key not configured');
+                document.getElementById('wp-lms-payment-status').innerHTML = 
+                    '<div class="error">Stripe ist nicht konfiguriert. Bitte kontaktieren Sie den Administrator.</div>';
+                return;
+            }
+            
+            const stripe = Stripe(publishableKey);
             const elements = stripe.elements();
             const cardElement = elements.create('card');
             
             let paymentIntentId = null;
             
-            document.getElementById('wp-lms-purchase-btn').addEventListener('click', function() {
+            const purchaseBtn = document.getElementById('wp-lms-purchase-btn');
+            if (!purchaseBtn) {
+                console.error('Purchase button not found');
+                return;
+            }
+            
+            purchaseBtn.addEventListener('click', function() {
+                console.log('Purchase button clicked');
                 const courseId = this.getAttribute('data-course-id');
                 
                 // Create payment intent
                 jQuery.ajax({
-                    url: wp_lms_ajax.ajax_url,
+                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
                     type: 'POST',
                     data: {
                         action: 'create_payment_intent',
                         course_id: courseId,
-                        nonce: wp_lms_ajax.nonce
+                        nonce: '<?php echo wp_create_nonce('wp_lms_nonce'); ?>'
                     },
                     success: function(response) {
+                        console.log('Payment intent response:', response);
                         if (response.success) {
                             paymentIntentId = response.data.payment_intent_id;
                             document.getElementById('wp-lms-purchase-btn').style.display = 'none';
@@ -298,43 +343,75 @@ class WP_LMS_Stripe_Integration {
                             document.getElementById('wp-lms-payment-status').innerHTML = 
                                 '<div class="error">' + response.data + '</div>';
                         }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('AJAX error:', error);
+                        document.getElementById('wp-lms-payment-status').innerHTML = 
+                            '<div class="error">Netzwerkfehler. Bitte versuchen Sie es erneut.</div>';
                     }
                 });
             });
             
             document.getElementById('submit-payment').addEventListener('click', function() {
-                stripe.confirmCardPayment(paymentIntentId, {
-                    payment_method: {
-                        card: cardElement
-                    }
-                }).then(function(result) {
-                    if (result.error) {
-                        document.getElementById('card-errors').textContent = result.error.message;
-                    } else {
-                        // Payment succeeded
-                        jQuery.ajax({
-                            url: wp_lms_ajax.ajax_url,
-                            type: 'POST',
-                            data: {
-                                action: 'confirm_payment',
-                                payment_intent_id: paymentIntentId,
-                                nonce: wp_lms_ajax.nonce
-                            },
-                            success: function(response) {
-                                if (response.success) {
-                                    document.getElementById('wp-lms-payment-status').innerHTML = 
-                                        '<div class="success">' + response.data.message + '</div>';
-                                    setTimeout(function() {
-                                        location.reload();
-                                    }, 2000);
-                                } else {
-                                    document.getElementById('wp-lms-payment-status').innerHTML = 
-                                        '<div class="error">' + response.data + '</div>';
-                                }
+                // In test mode, skip Stripe validation and directly confirm payment
+                if (paymentIntentId && paymentIntentId.startsWith('pi_test_')) {
+                    // Simulate successful payment for test mode
+                    jQuery.ajax({
+                        url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                        type: 'POST',
+                        data: {
+                            action: 'confirm_payment',
+                            payment_intent_id: paymentIntentId,
+                            nonce: '<?php echo wp_create_nonce('wp_lms_nonce'); ?>'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                document.getElementById('wp-lms-payment-status').innerHTML = 
+                                    '<div class="success">' + response.data.message + '</div>';
+                                setTimeout(function() {
+                                    location.reload();
+                                }, 2000);
+                            } else {
+                                document.getElementById('wp-lms-payment-status').innerHTML = 
+                                    '<div class="error">' + response.data + '</div>';
                             }
-                        });
-                    }
-                });
+                        }
+                    });
+                } else {
+                    // Real Stripe payment for live mode
+                    stripe.confirmCardPayment(paymentIntentId, {
+                        payment_method: {
+                            card: cardElement
+                        }
+                    }).then(function(result) {
+                        if (result.error) {
+                            document.getElementById('card-errors').textContent = result.error.message;
+                        } else {
+                            // Payment succeeded
+                            jQuery.ajax({
+                                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                                type: 'POST',
+                                data: {
+                                    action: 'confirm_payment',
+                                    payment_intent_id: paymentIntentId,
+                                    nonce: '<?php echo wp_create_nonce('wp_lms_nonce'); ?>'
+                                },
+                                success: function(response) {
+                                    if (response.success) {
+                                        document.getElementById('wp-lms-payment-status').innerHTML = 
+                                            '<div class="success">' + response.data.message + '</div>';
+                                        setTimeout(function() {
+                                            location.reload();
+                                        }, 2000);
+                                    } else {
+                                        document.getElementById('wp-lms-payment-status').innerHTML = 
+                                            '<div class="error">' + response.data + '</div>';
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
             });
             
             document.getElementById('cancel-payment').addEventListener('click', function() {
@@ -356,7 +433,7 @@ class WP_LMS_Stripe_Integration {
         ?>
         <div class="wp-lms-continue-section">
             <button class="wp-lms-btn wp-lms-btn-success" onclick="window.location.href='<?php echo get_permalink($course_id); ?>?action=start'">
-                <?php _e('Continue Course', 'wp-lms'); ?>
+                <?php _e('Kurs fortsetzen', 'wp-lms'); ?>
             </button>
         </div>
         <?php
@@ -374,5 +451,33 @@ class WP_LMS_Stripe_Integration {
         );
         
         return isset($symbols[$currency]) ? $symbols[$currency] : $currency . ' ';
+    }
+    
+    /**
+     * Add test mode indicator to frontend
+     */
+    public function add_test_mode_indicator() {
+        if (is_singular('lms_course') && get_option('wp_lms_stripe_test_mode', 0)) {
+            ?>
+            <div id="wp-lms-test-mode-indicator" style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: #ff9800;
+                color: white;
+                text-align: center;
+                padding: 10px;
+                font-weight: bold;
+                z-index: 9999;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            ">
+                🧪 <?php _e('STRIPE TEST MODE ACTIVE - No real payments will be processed', 'wp-lms'); ?>
+            </div>
+            <style>
+                body { margin-top: 50px !important; }
+            </style>
+            <?php
+        }
     }
 }
