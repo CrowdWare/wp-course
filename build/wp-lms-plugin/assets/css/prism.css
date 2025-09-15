@@ -1,0 +1,389 @@
+/**
+ * Prism.js Syntax Highlighting Theme
+ * Custom theme for WP LMS Plugin
+ */
+
+/* Base styles */
+code[class*="language-"],
+pre[class*="language-"] {
+    color: #333;
+    background: none;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    direction: ltr;
+    text-align: left;
+    white-space: pre;
+    word-spacing: normal;
+    word-break: normal;
+    word-wrap: normal;
+    tab-size: 4;
+    hyphens: none;
+}
+
+pre[class*="language-"]::-moz-selection,
+pre[class*="language-"] ::-moz-selection,
+code[class*="language-"]::-moz-selection,
+code[class*="language-"] ::-moz-selection {
+    text-shadow: none;
+    background: #b3d4fc;
+}
+
+pre[class*="language-"]::selection,
+pre[class*="language-"] ::selection,
+code[class*="language-"]::selection,
+code[class*="language-"] ::selection {
+    text-shadow: none;
+    background: #b3d4fc;
+}
+
+/* Code blocks */
+pre[class*="language-"] {
+    padding: 1em;
+    margin: 0.5em 0;
+    overflow: auto;
+    border-radius: 6px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+}
+
+/* Inline code */
+:not(pre) > code[class*="language-"] {
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    background: #f1f3f4;
+    color: #d73a49;
+    font-size: 0.9em;
+}
+
+/* Tokens */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: #6a737d;
+    font-style: italic;
+}
+
+.token.punctuation {
+    color: #586069;
+}
+
+.token.namespace {
+    opacity: 0.7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+    color: #005cc5;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+    color: #032f62;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+    color: #d73a49;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+    color: #d73a49;
+    font-weight: 600;
+}
+
+.token.function,
+.token.class-name {
+    color: #6f42c1;
+    font-weight: 600;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+    color: #e36209;
+}
+
+.token.important,
+.token.bold {
+    font-weight: bold;
+}
+
+.token.italic {
+    font-style: italic;
+}
+
+.token.entity {
+    cursor: help;
+}
+
+/* Language-specific styles */
+
+/* Kotlin */
+.language-kotlin .token.keyword {
+    color: #cf222e;
+}
+
+.language-kotlin .token.function {
+    color: #8250df;
+}
+
+.language-kotlin .token.string {
+    color: #0a3069;
+}
+
+/* Java */
+.language-java .token.keyword {
+    color: #cf222e;
+}
+
+.language-java .token.function {
+    color: #8250df;
+}
+
+.language-java .token.annotation {
+    color: #6f42c1;
+}
+
+/* JavaScript */
+.language-javascript .token.keyword {
+    color: #cf222e;
+}
+
+.language-javascript .token.function {
+    color: #8250df;
+}
+
+.language-javascript .token.template-string {
+    color: #0a3069;
+}
+
+/* Python */
+.language-python .token.keyword {
+    color: #cf222e;
+}
+
+.language-python .token.function {
+    color: #8250df;
+}
+
+.language-python .token.decorator {
+    color: #6f42c1;
+}
+
+/* Line numbers (if needed) */
+.line-numbers .line-numbers-rows {
+    position: absolute;
+    pointer-events: none;
+    top: 0;
+    font-size: 100%;
+    left: -3.8em;
+    width: 3em;
+    letter-spacing: -1px;
+    border-right: 1px solid #999;
+    user-select: none;
+}
+
+.line-numbers-rows > span {
+    pointer-events: none;
+    display: block;
+    counter-increment: linenumber;
+}
+
+.line-numbers-rows > span:before {
+    content: counter(linenumber);
+    color: #999;
+    display: block;
+    padding-right: 0.8em;
+    text-align: right;
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    code[class*="language-"],
+    pre[class*="language-"] {
+        color: #f8f8f2;
+    }
+    
+    pre[class*="language-"] {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    :not(pre) > code[class*="language-"] {
+        background: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .token.comment,
+    .token.prolog,
+    .token.doctype,
+    .token.cdata {
+        color: #a0aec0;
+    }
+    
+    .token.punctuation {
+        color: #cbd5e0;
+    }
+    
+    .token.property,
+    .token.tag,
+    .token.boolean,
+    .token.number,
+    .token.constant,
+    .token.symbol,
+    .token.deleted {
+        color: #90cdf4;
+    }
+    
+    .token.selector,
+    .token.attr-name,
+    .token.string,
+    .token.char,
+    .token.builtin,
+    .token.inserted {
+        color: #68d391;
+    }
+    
+    .token.operator,
+    .token.entity,
+    .token.url,
+    .language-css .token.string,
+    .style .token.string {
+        color: #f687b3;
+    }
+    
+    .token.atrule,
+    .token.attr-value,
+    .token.keyword {
+        color: #f687b3;
+    }
+    
+    .token.function,
+    .token.class-name {
+        color: #d6bcfa;
+    }
+    
+    .token.regex,
+    .token.important,
+    .token.variable {
+        color: #fbb6ce;
+    }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    code[class*="language-"],
+    pre[class*="language-"] {
+        font-size: 12px;
+    }
+    
+    pre[class*="language-"] {
+        padding: 0.8em;
+        margin: 0.3em 0;
+    }
+    
+    :not(pre) > code[class*="language-"] {
+        padding: 0.1em 0.3em;
+        font-size: 0.85em;
+    }
+}
+
+/* Copy button styles (if implemented) */
+.code-toolbar {
+    position: relative;
+}
+
+.code-toolbar .toolbar {
+    position: absolute;
+    top: 0.3em;
+    right: 0.2em;
+    transition: opacity 0.3s ease-in-out;
+    opacity: 0;
+}
+
+.code-toolbar:hover .toolbar {
+    opacity: 1;
+}
+
+.code-toolbar .toolbar .toolbar-item {
+    display: inline-block;
+}
+
+.code-toolbar .toolbar a {
+    cursor: pointer;
+}
+
+.code-toolbar .toolbar button {
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    line-height: normal;
+    overflow: visible;
+    padding: 0;
+    user-select: none;
+}
+
+.code-toolbar .toolbar a,
+.code-toolbar .toolbar button,
+.code-toolbar .toolbar span {
+    color: #bbb;
+    font-size: 0.8em;
+    padding: 0 0.5em;
+    background: #f5f2f0;
+    background: rgba(224, 224, 224, 0.2);
+    box-shadow: 0 2px 0 0 rgba(0, 0, 0, 0.2);
+    border-radius: 0.5em;
+}
+
+.code-toolbar .toolbar a:hover,
+.code-toolbar .toolbar a:focus,
+.code-toolbar .toolbar button:hover,
+.code-toolbar .toolbar button:focus,
+.code-toolbar .toolbar span:hover,
+.code-toolbar .toolbar span:focus {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* Scrollbar styling for code blocks */
+pre[class*="language-"]::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+pre[class*="language-"]::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+pre[class*="language-"]::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+pre[class*="language-"]::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Firefox scrollbar */
+pre[class*="language-"] {
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+}

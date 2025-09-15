@@ -1,0 +1,806 @@
+/* WP LMS Plugin Frontend Styles */
+
+/* Course Overview Styles */
+.wp-lms-course-overview {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.course-content {
+    margin-bottom: 40px;
+}
+
+.course-structure {
+    background: #f9f9f9;
+    padding: 30px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+}
+
+.course-structure h3 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #007cba;
+    padding-bottom: 10px;
+}
+
+.chapters-list {
+    margin-top: 20px;
+}
+
+.chapter-item {
+    background: white;
+    margin-bottom: 20px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.chapter-item h4 {
+    background: #007cba;
+    color: white;
+    margin: 0;
+    padding: 15px 20px;
+    font-size: 16px;
+}
+
+.lessons-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.lesson-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lesson-item:last-child {
+    border-bottom: none;
+}
+
+.lesson-title {
+    font-weight: 500;
+    color: #333;
+}
+
+.lesson-duration {
+    color: #666;
+    font-size: 14px;
+    background: #f0f0f0;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+/* Purchase Section */
+.course-purchase {
+    text-align: center;
+    padding: 30px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.wp-lms-purchase-section .course-price {
+    font-size: 32px;
+    font-weight: bold;
+    color: #007cba;
+    margin-bottom: 20px;
+}
+
+.wp-lms-purchase-section .price {
+    margin-right: 5px;
+}
+
+.wp-lms-purchase-section .currency {
+    font-size: 18px;
+    color: #666;
+}
+
+/* Buttons */
+.wp-lms-btn {
+    display: inline-block;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.wp-lms-btn-primary {
+    background: #007cba;
+    color: white;
+}
+
+.wp-lms-btn-primary:hover {
+    background: #005a87;
+    color: white;
+}
+
+.wp-lms-btn-success {
+    background: #46b450;
+    color: white;
+}
+
+.wp-lms-btn-success:hover {
+    background: #3a9640;
+    color: white;
+}
+
+.wp-lms-btn-secondary {
+    background: #666;
+    color: white;
+}
+
+.wp-lms-btn-secondary:hover {
+    background: #555;
+    color: white;
+}
+
+/* Payment Form */
+#wp-lms-payment-form {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 6px;
+}
+
+#card-element {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    margin-bottom: 15px;
+}
+
+#card-errors {
+    color: #d32f2f;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+#wp-lms-payment-status .success {
+    color: #46b450;
+    padding: 10px;
+    background: #f0f8f0;
+    border-radius: 4px;
+    margin-top: 15px;
+}
+
+#wp-lms-payment-status .error {
+    color: #d32f2f;
+    padding: 10px;
+    background: #fdf0f0;
+    border-radius: 4px;
+    margin-top: 15px;
+}
+
+/* Learning Interface */
+.wp-lms-learning-interface {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #f5f5f5;
+    min-height: 100vh;
+}
+
+.learning-header {
+    background: white;
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.learning-header h1 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 24px;
+}
+
+.progress-bar-container {
+    width: 100%;
+    max-width: 400px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007cba, #46b450);
+    transition: width 0.3s ease;
+    border-radius: 4px;
+}
+
+.learning-content {
+    display: flex;
+    height: calc(100vh - 120px);
+}
+
+.video-panel {
+    flex: 1;
+    background: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-message {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    text-align: center;
+    color: #666;
+}
+
+.welcome-message h2 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+#video-container {
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#lesson-video {
+    width: 100%;
+    max-height: 60%;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.code-sections {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.code-section-btn {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+/* Navigation Panel */
+.navigation-panel {
+    width: 350px;
+    background: white;
+    border-left: 1px solid #ddd;
+    overflow-y: auto;
+}
+
+.chapters-navigation {
+    padding: 20px;
+}
+
+.chapter-nav {
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.chapter-header {
+    background: #f8f9fa;
+    padding: 15px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 500;
+    transition: background 0.2s ease;
+}
+
+.chapter-header:hover {
+    background: #e9ecef;
+}
+
+.chapter-title {
+    color: #333;
+}
+
+.chapter-toggle {
+    color: #666;
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.lessons-nav {
+    background: white;
+    display: none; /* Initially hidden */
+}
+
+.lessons-nav.open {
+    display: block;
+}
+
+.lesson-nav {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s ease;
+}
+
+.lesson-nav:hover {
+    background: #f8f9fa;
+}
+
+.lesson-nav.active {
+    background: #e3f2fd;
+    border-left: 4px solid #007cba;
+}
+
+.lesson-nav:last-child {
+    border-bottom: none;
+}
+
+.lesson-title {
+    font-size: 14px;
+    color: #333;
+    flex: 1;
+}
+
+.lesson-duration {
+    font-size: 12px;
+    color: #666;
+    margin-left: 10px;
+}
+
+.lesson-status {
+    margin-left: 10px;
+    font-size: 12px;
+}
+
+/* Overlay Panels */
+.code-overlay, .wasm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.code-panel, .wasm-panel {
+    background: white;
+    border-radius: 8px;
+    max-width: 90%;
+    max-height: 90%;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.code-header, .wasm-header {
+    background: #333;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.code-header h3, .wasm-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: white !important;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    transition: background 0.2s ease;
+}
+
+.close-btn:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.code-content {
+    padding: 20px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.code-content pre {
+    background: #f8f9fa !important;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 15px;
+    overflow-x: auto;
+    margin: 0 0 20px 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.code-content code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    color: #333 !important;
+    background: transparent !important;
+}
+
+/* Override Prism.js default colors for better readability */
+.code-content .token.comment,
+.code-content .token.prolog,
+.code-content .token.doctype,
+.code-content .token.cdata {
+    color: #708090 !important;
+}
+
+.code-content .token.punctuation {
+    color: #999 !important;
+}
+
+.code-content .token.property,
+.code-content .token.tag,
+.code-content .token.boolean,
+.code-content .token.number,
+.code-content .token.constant,
+.code-content .token.symbol,
+.code-content .token.deleted {
+    color: #905 !important;
+}
+
+.code-content .token.selector,
+.code-content .token.attr-name,
+.code-content .token.string,
+.code-content .token.char,
+.code-content .token.builtin,
+.code-content .token.inserted {
+    color: #690 !important;
+}
+
+.code-content .token.operator,
+.code-content .token.entity,
+.code-content .token.url,
+.code-content .language-css .token.string,
+.code-content .style .token.string {
+    color: #9a6e3a !important;
+}
+
+.code-content .token.atrule,
+.code-content .token.attr-value,
+.code-content .token.keyword {
+    color: #07a !important;
+}
+
+.code-content .token.function,
+.code-content .token.class-name {
+    color: #DD4A68 !important;
+}
+
+.code-content .token.regex,
+.code-content .token.important,
+.code-content .token.variable {
+    color: #e90 !important;
+}
+
+.code-actions {
+    text-align: center;
+}
+
+.wasm-content {
+    width: 80vw;
+    height: 70vh;
+}
+
+.wasm-content iframe {
+    border: none;
+    width: 100%;
+    height: 100%;
+}
+
+/* Progress Widget */
+.wp-lms-progress-widget {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.progress-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.progress-percentage {
+    font-size: 24px;
+    font-weight: bold;
+    color: #007cba;
+}
+
+.progress-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.stat {
+    text-align: center;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.stat-label {
+    display: block;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.chapters-progress {
+    margin-top: 20px;
+}
+
+.chapter-progress {
+    margin-bottom: 20px;
+}
+
+.chapter-progress h4 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.lessons-progress {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.lesson-progress {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.lesson-progress:last-child {
+    border-bottom: none;
+}
+
+.lesson-progress.completed .lesson-title {
+    color: #46b450;
+}
+
+.status-icon {
+    font-size: 16px;
+}
+
+.status-icon.completed {
+    color: #46b450;
+}
+
+.status-icon.in-progress {
+    color: #ff9800;
+}
+
+.status-icon.not-started {
+    color: #ccc;
+}
+
+/* User Courses */
+.wp-lms-user-courses {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.wp-lms-user-courses h3 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.courses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.course-card {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.course-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.course-thumbnail img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.course-info {
+    padding: 20px;
+}
+
+.course-info h4 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.course-progress {
+    margin-bottom: 15px;
+}
+
+.progress-text {
+    font-size: 14px;
+    color: #666;
+    margin-top: 5px;
+    display: block;
+}
+
+.course-actions {
+    text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .learning-content {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .navigation-panel {
+        width: 100%;
+        max-height: 300px;
+        border-left: none;
+        border-top: 1px solid #ddd;
+    }
+    
+    .code-panel, .wasm-panel {
+        max-width: 95%;
+        max-height: 95%;
+    }
+    
+    .wasm-content {
+        width: 90vw;
+        height: 60vh;
+    }
+    
+    .courses-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .progress-stats {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .wp-lms-course-overview,
+    .wp-lms-user-courses {
+        padding: 10px;
+    }
+    
+    .course-structure {
+        padding: 20px;
+    }
+    
+    .learning-header {
+        padding: 15px;
+    }
+    
+    .learning-header h1 {
+        font-size: 20px;
+    }
+    
+    .chapters-navigation {
+        padding: 15px;
+    }
+    
+    .navigation-panel {
+        max-height: 250px;
+    }
+}
+
+/* Syntax Highlighting Support */
+.code-content pre[class*="language-"] {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+}
+
+.code-content code[class*="language-"] {
+    background: transparent;
+}
+
+/* Loading States */
+.wp-lms-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+}
+
+.wp-lms-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007cba;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Accessibility */
+.wp-lms-btn:focus,
+.lesson-nav:focus,
+.chapter-header:focus {
+    outline: 2px solid #007cba;
+    outline-offset: 2px;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
