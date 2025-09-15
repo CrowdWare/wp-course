@@ -30,9 +30,9 @@ class WP_LMS_Database {
             status varchar(20) NOT NULL DEFAULT 'pending',
             purchased_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            UNIQUE KEY unique_user_course (user_id, course_id),
             KEY user_id (user_id),
-            KEY course_id (course_id)
+            KEY course_id (course_id),
+            KEY stripe_payment_intent_id (stripe_payment_intent_id)
         ) $charset_collate;";
         
         // Table for user progress
@@ -72,6 +72,26 @@ class WP_LMS_Database {
         dbDelta($sql_purchases);
         dbDelta($sql_progress);
         dbDelta($sql_wasm);
+        
+        // Fix existing table constraints
+        $this->fix_purchase_table_constraints();
+    }
+    
+    /**
+     * Fix purchase table constraints
+     */
+    private function fix_purchase_table_constraints() {
+        global $wpdb;
+        
+        $table_purchases = $wpdb->prefix . 'lms_course_purchases';
+        
+        // Check if the unique constraint exists and remove it
+        $constraints = $wpdb->get_results("SHOW INDEX FROM $table_purchases WHERE Key_name = 'unique_user_course'");
+        
+        if (!empty($constraints)) {
+            $wpdb->query("ALTER TABLE $table_purchases DROP INDEX unique_user_course");
+            error_log("WP LMS: Removed unique_user_course constraint from purchases table");
+        }
     }
     
     /**
@@ -122,13 +142,32 @@ class WP_LMS_Database {
         
         $table_purchases = $wpdb->prefix . 'lms_course_purchases';
         
-        return $wpdb->update(
+        // First check if the record exists
+        $existing = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table_purchases WHERE stripe_payment_intent_id = %s",
+            $stripe_payment_intent_id
+        ));
+        
+        if (!$existing) {
+            error_log("WP LMS: No purchase record found for payment intent: " . $stripe_payment_intent_id);
+            return false;
+        }
+        
+        $result = $wpdb->update(
             $table_purchases,
             array('status' => $status),
             array('stripe_payment_intent_id' => $stripe_payment_intent_id),
             array('%s'),
             array('%s')
         );
+        
+        if ($result === false) {
+            error_log("WP LMS: Failed to update purchase status. Error: " . $wpdb->last_error);
+        } else {
+            error_log("WP LMS: Successfully updated purchase status to '$status' for payment intent: " . $stripe_payment_intent_id);
+        }
+        
+        return $result;
     }
     
     /**

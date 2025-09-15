@@ -3,7 +3,7 @@
  * Plugin Name: WP LMS Plugin
  * Plugin URI: https://example.com/wp-lms-plugin
  * Description: A comprehensive Learning Management System for WordPress with video lessons, code sections, and WASM integration.
- * Version: 1.0.69
+ * Version: 1.0.73
  * Author: Your Name
  * License: GPL v2 or later
  * Text Domain: wp-lms
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 // Define plugin constants
 define('WP_LMS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WP_LMS_PLUGIN_PATH', plugin_dir_path(__FILE__));
-define('WP_LMS_VERSION', '1.0.69');
+define('WP_LMS_VERSION', '1.0.73');
 
 // Main plugin class
 class WP_LMS_Plugin {
@@ -44,7 +44,11 @@ class WP_LMS_Plugin {
         
         // Initialize components
         new WP_LMS_Post_Types();
-        new WP_LMS_Database();
+        $database = new WP_LMS_Database();
+        
+        // Force database table repair on every load (temporary fix)
+        $database->create_tables();
+        
         new WP_LMS_Stripe_Integration();
         new WP_LMS_Frontend();
         new WP_LMS_Admin();

@@ -58,7 +58,11 @@ class WP_LMS_Stripe_Integration {
         
         // Check if user already purchased this course
         if ($this->database->has_user_purchased_course($user_id, $course_id)) {
-            wp_send_json_error('Sie haben bereits Zugang zu diesem Kurs. Die Seite wird neu geladen.');
+            wp_send_json_success([
+                'already_purchased' => true,
+                'message' => 'Sie haben bereits Zugang zu diesem Kurs. Die Seite wird neu geladen.',
+                'redirect' => true
+            ]);
             return;
         }
         
@@ -335,13 +339,24 @@ class WP_LMS_Stripe_Integration {
                     success: function(response) {
                         console.log('Payment intent response:', response);
                         if (response.success) {
-                            paymentIntentId = response.data.payment_intent_id;
-                            document.getElementById('wp-lms-purchase-btn').style.display = 'none';
-                            document.getElementById('wp-lms-payment-form').style.display = 'block';
-                            cardElement.mount('#card-element');
+                            if (response.data.already_purchased) {
+                                // User already has access, reload page
+                                document.getElementById('wp-lms-payment-status').innerHTML = 
+                                    '<div class="success">' + response.data.message + '</div>';
+                                setTimeout(function() {
+                                    location.reload();
+                                }, 2000);
+                            } else {
+                                // Show payment form
+                                paymentIntentId = response.data.payment_intent_id;
+                                document.getElementById('wp-lms-purchase-btn').style.display = 'none';
+                                document.getElementById('wp-lms-payment-form').style.display = 'block';
+                                cardElement.mount('#card-element');
+                            }
                         } else {
+                            var errorMessage = response.data || response.message || 'Unbekannter Fehler aufgetreten.';
                             document.getElementById('wp-lms-payment-status').innerHTML = 
-                                '<div class="error">' + response.data + '</div>';
+                                '<div class="error">' + errorMessage + '</div>';
                         }
                     },
                     error: function(xhr, status, error) {
