@@ -22,6 +22,8 @@ class WP_LMS_Frontend {
         add_action('wp_ajax_update_lesson_progress', array($this, 'update_lesson_progress'));
         add_action('wp_ajax_nopriv_update_lesson_progress', array($this, 'update_lesson_progress'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_stripe_js'));
+        add_action('wp_head', array($this, 'hide_course_meta'));
+        // Removed template override - using CSS only to hide meta information
     }
     
     /**
@@ -30,6 +32,83 @@ class WP_LMS_Frontend {
     public function enqueue_stripe_js() {
         if (is_singular('lms_course')) {
             wp_enqueue_script('stripe-js', 'https://js.stripe.com/v3/', array(), null, true);
+        }
+    }
+    
+    /**
+     * Hide course meta information (date, author, etc.)
+     */
+    public function hide_course_meta() {
+        if (is_singular('lms_course')) {
+            ?>
+            <style type="text/css">
+                /* Hide post meta information on course pages */
+                .single-lms_course .entry-meta,
+                .single-lms_course .post-meta,
+                .single-lms_course .entry-date,
+                .single-lms_course .posted-on,
+                .single-lms_course .byline,
+                .single-lms_course .author,
+                .single-lms_course .entry-footer,
+                .single-lms_course .post-date,
+                .single-lms_course .published,
+                .single-lms_course .updated,
+                .single-lms_course .cat-links,
+                .single-lms_course .tags-links,
+                .single-lms_course .comments-link,
+                .single-lms_course .edit-link,
+                .single-lms_course .post-navigation,
+                .single-lms_course .nav-links {
+                    display: none !important;
+                }
+                
+                /* Hide common theme meta classes */
+                .single-lms_course .meta-info,
+                .single-lms_course .post-info,
+                .single-lms_course .entry-info,
+                .single-lms_course .post-details,
+                .single-lms_course .article-meta,
+                .single-lms_course .post-header-meta {
+                    display: none !important;
+                }
+                
+                /* Hide breadcrumbs if they show post type */
+                .single-lms_course .breadcrumb,
+                .single-lms_course .breadcrumbs {
+                    display: none !important;
+                }
+                
+                /* Hide more specific meta elements */
+                .single-lms_course .entry-header .entry-meta,
+                .single-lms_course .entry-content .entry-meta,
+                .single-lms_course .post-header .post-meta,
+                .single-lms_course .post-content .post-meta,
+                .single-lms_course time,
+                .single-lms_course .time,
+                .single-lms_course .date,
+                .single-lms_course .datetime,
+                .single-lms_course .post-author,
+                .single-lms_course .author-name,
+                .single-lms_course .post-categories,
+                .single-lms_course .post-tags,
+                .single-lms_course .meta-separator,
+                .single-lms_course .meta-divider {
+                    display: none !important;
+                }
+                
+                /* Hide elements that contain date/author info */
+                .single-lms_course p:has(time),
+                .single-lms_course div:has(.entry-date),
+                .single-lms_course span:has(.published) {
+                    display: none !important;
+                }
+                
+                /* Hide any text nodes that might contain date patterns */
+                .single-lms_course .entry-header > *:not(.entry-title):not(h1):not(h2):not(h3) {
+                    display: none !important;
+                }
+            </style>
+            <?php
         }
     }
     
@@ -335,5 +414,18 @@ class WP_LMS_Frontend {
         }
         
         return $chapters;
+    }
+    
+    /**
+     * Load custom template for courses
+     */
+    public function load_course_template($template) {
+        if (is_singular('lms_course')) {
+            $plugin_template = plugin_dir_path(__FILE__) . '../templates/single-lms_course.php';
+            if (file_exists($plugin_template)) {
+                return $plugin_template;
+            }
+        }
+        return $template;
     }
 }

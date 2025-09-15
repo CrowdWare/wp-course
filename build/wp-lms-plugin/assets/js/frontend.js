@@ -273,9 +273,12 @@
                 cleanCode = tempDiv.textContent || tempDiv.innerText || '';
             }
             
-            // Set clean code as plain text only (no syntax highlighting)
+            // Set clean code as plain text only
             codeElement.textContent = cleanCode;
-            codeElement.className = '';
+            codeElement.className = 'language-' + (section.language || 'kotlin');
+            
+            // Just show plain text - no syntax highlighting
+            // This ensures clean, readable code display without any HTML issues
             
             // Update run button
             var runBtn = $('#run-wasm-btn');
@@ -556,6 +559,61 @@
                 clearTimeout(timeout);
                 timeout = setTimeout(later, wait);
             };
+        },
+        
+        // Simple custom syntax highlighting
+        applySyntaxHighlighting: function(element, language) {
+            var code = element.textContent;
+            var highlightedCode = code;
+            
+            // Define patterns for different languages
+            var patterns = {
+                kotlin: [
+                    { pattern: /\b(val|var|fun|class|object|interface|enum|data|sealed|abstract|open|final|override|private|protected|public|internal|inline|suspend|operator|infix|lateinit|const|companion|init|constructor|this|super|return|if|else|when|for|while|do|break|continue|try|catch|finally|throw|import|package|as|is|in|out|by|where|reified|crossinline|noinline|vararg|tailrec|external|actual|expect|annotation|typealias)\b/g, className: 'keyword' },
+                    { pattern: /"([^"\\]|\\.)*"/g, className: 'string' },
+                    { pattern: /\b\d+(\.\d+)?[fFdDlL]?\b/g, className: 'number' },
+                    { pattern: /\/\/.*$/gm, className: 'comment' },
+                    { pattern: /\/\*[\s\S]*?\*\//g, className: 'comment' },
+                    { pattern: /\b[A-Z][a-zA-Z0-9_]*\b/g, className: 'class-name' },
+                    { pattern: /\b[a-zA-Z_][a-zA-Z0-9_]*(?=\s*\()/g, className: 'function' }
+                ],
+                java: [
+                    { pattern: /\b(abstract|assert|boolean|break|byte|case|catch|char|class|const|continue|default|do|double|else|enum|extends|final|finally|float|for|goto|if|implements|import|instanceof|int|interface|long|native|new|package|private|protected|public|return|short|static|strictfp|super|switch|synchronized|this|throw|throws|transient|try|void|volatile|while)\b/g, className: 'keyword' },
+                    { pattern: /"([^"\\]|\\.)*"/g, className: 'string' },
+                    { pattern: /\b\d+(\.\d+)?[fFdDlL]?\b/g, className: 'number' },
+                    { pattern: /\/\/.*$/gm, className: 'comment' },
+                    { pattern: /\/\*[\s\S]*?\*\//g, className: 'comment' },
+                    { pattern: /\b[A-Z][a-zA-Z0-9_]*\b/g, className: 'class-name' },
+                    { pattern: /\b[a-zA-Z_][a-zA-Z0-9_]*(?=\s*\()/g, className: 'function' }
+                ],
+                javascript: [
+                    { pattern: /\b(as|async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|finally|for|from|function|get|if|implements|import|in|instanceof|interface|let|new|null|of|package|private|protected|public|return|set|static|super|switch|this|throw|try|typeof|undefined|var|void|while|with|yield)\b/g, className: 'keyword' },
+                    { pattern: /(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g, className: 'string' },
+                    { pattern: /\b\d+(\.\d+)?([eE][+-]?\d+)?\b/g, className: 'number' },
+                    { pattern: /\/\/.*$/gm, className: 'comment' },
+                    { pattern: /\/\*[\s\S]*?\*\//g, className: 'comment' },
+                    { pattern: /\b[a-zA-Z_][a-zA-Z0-9_]*(?=\s*\()/g, className: 'function' }
+                ],
+                python: [
+                    { pattern: /\b(and|as|assert|break|class|continue|def|del|elif|else|except|exec|finally|for|from|global|if|import|in|is|lambda|not|or|pass|print|raise|return|try|while|with|yield)\b/g, className: 'keyword' },
+                    { pattern: /(?:"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, className: 'string' },
+                    { pattern: /\b\d+(\.\d+)?([eE][+-]?\d+)?\b/g, className: 'number' },
+                    { pattern: /#.*$/gm, className: 'comment' },
+                    { pattern: /\b[a-zA-Z_][a-zA-Z0-9_]*(?=\s*\()/g, className: 'function' }
+                ]
+            };
+            
+            var langPatterns = patterns[language] || patterns.kotlin;
+            
+            // Apply highlighting patterns
+            langPatterns.forEach(function(item) {
+                highlightedCode = highlightedCode.replace(item.pattern, function(match) {
+                    return '<span class="token ' + item.className + '">' + match + '</span>';
+                });
+            });
+            
+            // Set the highlighted code as HTML
+            element.innerHTML = highlightedCode;
         }
     };
 

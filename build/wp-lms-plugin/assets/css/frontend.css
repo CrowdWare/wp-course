@@ -451,62 +451,65 @@
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     color: #333 !important;
     background: transparent !important;
+    white-space: pre-wrap;
+    line-height: 1.6;
 }
 
-/* Override Prism.js default colors for better readability */
-.code-content .token.comment,
-.code-content .token.prolog,
-.code-content .token.doctype,
-.code-content .token.cdata {
+/* CSS-based Syntax Highlighting for Kotlin */
+.code-content code.language-kotlin {
+    /* Apply basic styling that works without JavaScript */
+}
+
+/* Simple regex-based highlighting using CSS pseudo-elements */
+.code-content code::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+/* Custom Syntax Highlighting Colors */
+.code-content .token {
+    background: none !important;
+}
+
+.code-content .token.comment {
     color: #708090 !important;
+    font-style: italic;
+}
+
+.code-content .token.keyword {
+    color: #0066cc !important;
+    font-weight: bold;
+}
+
+.code-content .token.string {
+    color: #009900 !important;
+}
+
+.code-content .token.number {
+    color: #cc0000 !important;
+}
+
+.code-content .token.function {
+    color: #cc6600 !important;
+    font-weight: bold;
+}
+
+.code-content .token.class-name {
+    color: #cc6600 !important;
+    font-weight: bold;
+}
+
+.code-content .token.operator {
+    color: #666666 !important;
 }
 
 .code-content .token.punctuation {
-    color: #999 !important;
-}
-
-.code-content .token.property,
-.code-content .token.tag,
-.code-content .token.boolean,
-.code-content .token.number,
-.code-content .token.constant,
-.code-content .token.symbol,
-.code-content .token.deleted {
-    color: #905 !important;
-}
-
-.code-content .token.selector,
-.code-content .token.attr-name,
-.code-content .token.string,
-.code-content .token.char,
-.code-content .token.builtin,
-.code-content .token.inserted {
-    color: #690 !important;
-}
-
-.code-content .token.operator,
-.code-content .token.entity,
-.code-content .token.url,
-.code-content .language-css .token.string,
-.code-content .style .token.string {
-    color: #9a6e3a !important;
-}
-
-.code-content .token.atrule,
-.code-content .token.attr-value,
-.code-content .token.keyword {
-    color: #07a !important;
-}
-
-.code-content .token.function,
-.code-content .token.class-name {
-    color: #DD4A68 !important;
-}
-
-.code-content .token.regex,
-.code-content .token.important,
-.code-content .token.variable {
-    color: #e90 !important;
+    color: #666666 !important;
 }
 
 .code-actions {
