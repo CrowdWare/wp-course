@@ -81,6 +81,26 @@
                 var lessonId = $(this).data('lesson-id');
                 WP_LMS_Frontend.markLessonComplete(lessonId);
             });
+            
+            // Preview button functionality
+            $(document).on('click', '.wp-lms-preview-btn', function() {
+                var lessonId = $(this).data('lesson-id');
+                var lessonTitle = $(this).data('lesson-title');
+                var videoUrl = $(this).data('video-url');
+                WP_LMS_Frontend.showPreviewVideo(lessonId, lessonTitle, videoUrl);
+            });
+            
+            // Close preview modal
+            $(document).on('click', '#close-preview-modal', function() {
+                WP_LMS_Frontend.closePreviewModal();
+            });
+            
+            // Close preview modal when clicking outside
+            $(document).on('click', '#preview-modal-overlay', function(e) {
+                if (e.target === this) {
+                    WP_LMS_Frontend.closePreviewModal();
+                }
+            });
         },
         
         // Toggle chapter visibility
@@ -655,9 +675,73 @@
                 });
             });
             
-            // Set the highlighted code as HTML
-            element.innerHTML = highlightedCode;
+        // Set the highlighted code as HTML
+        element.innerHTML = highlightedCode;
+    },
+    
+    // Show preview video modal
+    showPreviewVideo: function(lessonId, lessonTitle, videoUrl) {
+        // Create preview modal if it doesn't exist
+        if ($('#preview-modal-overlay').length === 0) {
+            this.createPreviewModal();
         }
+        
+        // Set video details
+        $('#preview-modal-title').text('Vorschau: ' + lessonTitle);
+        $('#preview-video').attr('src', videoUrl);
+        
+        // Show modal
+        $('#preview-modal-overlay').fadeIn(300);
+        
+        // Auto-play preview video
+        var previewVideo = document.getElementById('preview-video');
+        if (previewVideo) {
+            previewVideo.play().catch(function(error) {
+                // Auto-play prevented - this is normal browser behavior
+                console.log('Auto-play prevented for preview video');
+            });
+        }
+    },
+    
+    // Create preview modal HTML
+    createPreviewModal: function() {
+        var modalHtml = `
+            <div id="preview-modal-overlay" class="preview-modal-overlay" style="display: none;">
+                <div class="preview-modal">
+                    <div class="preview-modal-header">
+                        <h3 id="preview-modal-title">Video Vorschau</h3>
+                        <button id="close-preview-modal" class="close-btn">&times;</button>
+                    </div>
+                    <div class="preview-modal-content">
+                        <video id="preview-video" controls width="100%">
+                            <source src="" type="video/mp4">
+                            Ihr Browser unterstützt das Video-Tag nicht.
+                        </video>
+                        <div class="preview-modal-footer">
+                            <p class="preview-notice">
+                                <strong>Dies ist eine Vorschau.</strong> 
+                                Kaufen Sie den Kurs, um Zugang zu allen Lektionen und Features zu erhalten.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $('body').append(modalHtml);
+    },
+    
+    // Close preview modal
+    closePreviewModal: function() {
+        var previewVideo = document.getElementById('preview-video');
+        if (previewVideo) {
+            previewVideo.pause();
+            previewVideo.currentTime = 0;
+            previewVideo.src = '';
+        }
+        
+        $('#preview-modal-overlay').fadeOut(300);
+    }
     };
 
     // Course purchase functionality
@@ -683,25 +767,36 @@
         },
         
         bindEvents: function() {
-            $(document).on('click', '#wp-lms-purchase-btn', this.handlePurchaseClick.bind(this));
+            $(document).on('click', '#wp-lms-purchase-btn-standard, #wp-lms-purchase-btn-premium', this.handlePurchaseClick.bind(this));
             $(document).on('click', '#submit-payment', this.handlePaymentSubmit.bind(this));
             $(document).on('click', '#cancel-payment', this.handlePaymentCancel.bind(this));
+            
+            // Guest purchase buttons
+            $(document).on('click', '.wp-lms-guest-purchase-btn', this.handleGuestPurchaseClick.bind(this));
+            $(document).on('click', '#submit-guest-payment', this.handleGuestPaymentSubmit.bind(this));
+            $(document).on('click', '#cancel-guest-payment', this.handleGuestPaymentCancel.bind(this));
         },
         
         handlePurchaseClick: function(e) {
             var button = $(e.target);
             var courseId = button.data('course-id');
+            var isPremium = button.data('is-premium') || false;
             
-            this.createPaymentIntent(courseId);
+            // Store selection for payment form
+            this.selectedCourseId = courseId;
+            this.selectedIsPremium = isPremium;
+            
+            this.createPaymentIntent(courseId, isPremium);
         },
         
-        createPaymentIntent: function(courseId) {
+        createPaymentIntent: function(courseId, isPremium) {
             $.ajax({
                 url: wp_lms_ajax.ajax_url,
                 type: 'POST',
                 data: {
                     action: 'create_payment_intent',
                     course_id: courseId,
+                    is_premium: isPremium,
                     nonce: wp_lms_ajax.nonce
                 },
                 success: function(response) {
@@ -716,25 +811,90 @@
         },
         
         showPaymentForm: function() {
-            $('#wp-lms-purchase-btn').hide();
+            // Hide all purchase buttons and disable them
+            $('#wp-lms-purchase-btn-standard, #wp-lms-purchase-btn-premium').prop('disabled', true).addClass('disabled');
+            
+            // Get course and pricing information
+            var courseId = this.selectedCourseId;
+            var isPremium = this.selectedIsPremium;
+            
+            // Get price information from the page
+            var priceText, versionText;
+            if (isPremium) {
+                var premiumOption = $('.premium-option');
+                priceText = premiumOption.find('.price').text() + ' ' + premiumOption.find('.currency').text();
+                versionText = 'Premium Version';
+            } else {
+                var standardOption = $('.standard-option');
+                if (standardOption.length > 0) {
+                    priceText = standardOption.find('.price').text() + ' ' + standardOption.find('.currency').text();
+                    versionText = 'Standard Version';
+                } else {
+                    // Standard-only course
+                    var standardPurchase = $('.wp-lms-standard-purchase');
+                    priceText = standardPurchase.find('.price').text() + ' ' + standardPurchase.find('.currency').text();
+                    versionText = 'Standard Version';
+                }
+            }
+            
+            // Update payment form with selection details
+            $('#selected-version').text(versionText);
+            $('#total-price').text(priceText);
+            $('#payment-amount').text('(' + priceText + ')');
+            
+            // Show payment form
             $('#wp-lms-payment-form').show();
             
-            // Mount card element
+            // Always create a fresh card element
+            if (this.cardElement) {
+                try {
+                    this.cardElement.unmount();
+                } catch (e) {
+                    // Element might already be unmounted
+                }
+            }
             this.cardElement = this.elements.create('card');
             this.cardElement.mount('#card-element');
         },
         
         handlePaymentSubmit: function() {
+            console.log('Payment submit clicked');
+            console.log('Payment Intent ID:', this.paymentIntentId);
+            console.log('Card Element:', this.cardElement);
+            
+            if (!this.paymentIntentId) {
+                $('#card-errors').text('Fehler: Keine Zahlungsabsicht gefunden. Bitte versuchen Sie es erneut.');
+                return;
+            }
+            
+            if (!this.cardElement) {
+                $('#card-errors').text('Fehler: Kreditkartenfeld nicht verfügbar. Bitte laden Sie die Seite neu.');
+                return;
+            }
+            
+            // In test mode, skip Stripe validation and directly confirm payment
+            if (this.paymentIntentId.startsWith('pi_test_')) {
+                console.log('Test mode - skipping Stripe validation');
+                this.confirmPayment();
+                return;
+            }
+            
+            // Real Stripe payment for live mode
             this.stripe.confirmCardPayment(this.paymentIntentId, {
                 payment_method: {
                     card: this.cardElement
                 }
             }).then(function(result) {
                 if (result.error) {
+                    console.error('Stripe error:', result.error);
                     $('#card-errors').text(result.error.message);
                 } else {
+                    console.log('Stripe payment successful');
                     WP_LMS_Purchase.confirmPayment();
                 }
+            }).catch(function(error) {
+                console.error('Stripe promise error:', error);
+                $('#card-errors').text('Zahlungsfehler: ' + error.message);
             });
         },
         
@@ -761,11 +921,196 @@
         },
         
         handlePaymentCancel: function() {
-            $('#wp-lms-purchase-btn').show();
+            // Re-enable all purchase buttons
+            $('#wp-lms-purchase-btn-standard, #wp-lms-purchase-btn-premium').prop('disabled', false).removeClass('disabled');
+            
+            // Hide payment form
             $('#wp-lms-payment-form').hide();
+            
+            // Unmount card element
             if (this.cardElement) {
                 this.cardElement.unmount();
+                this.cardElement = null;
             }
+            
+            // Clear any error messages
+            $('#wp-lms-payment-status').empty();
+            $('#card-errors').empty();
+        },
+        
+        handleGuestPurchaseClick: function(e) {
+            var button = $(e.target);
+            var courseId = button.data('course-id');
+            var isPremium = button.data('is-premium') || false;
+            var price = button.data('price');
+            var currency = button.data('currency');
+            
+            // Store selection for payment form
+            this.selectedCourseId = courseId;
+            this.selectedIsPremium = isPremium;
+            this.selectedPrice = price;
+            this.selectedCurrency = currency;
+            
+            // Show guest payment form
+            this.showGuestPaymentForm();
+        },
+        
+        showGuestPaymentForm: function() {
+            // Hide purchase options and show payment form
+            $('.wp-lms-premium-purchase-options, .wp-lms-standard-purchase').hide();
+            
+            // Update payment form with selection details
+            var versionText = this.selectedIsPremium ? 'Premium Version' : 'Standard Version';
+            var priceText = this.selectedPrice + ' ' + this.selectedCurrency;
+            
+            $('#guest-selected-version').text(versionText);
+            $('#guest-total-price').text(priceText);
+            $('#guest-payment-amount').text('(' + priceText + ')');
+            
+            // Show payment form
+            $('#wp-lms-guest-purchase-form').show();
+            
+            // Always create a fresh card element
+            if (this.guestCardElement) {
+                try {
+                    this.guestCardElement.unmount();
+                } catch (e) {
+                    // Element might already be unmounted
+                }
+            }
+            this.guestCardElement = this.elements.create('card');
+            this.guestCardElement.mount('#guest-card-element');
+        },
+        
+        handleGuestPaymentSubmit: function() {
+            var email = $('#guest-payment-email').val().trim();
+            
+            if (!email || !this.isValidEmail(email)) {
+                $('#wp-lms-guest-payment-status').html('<div class="error">Bitte geben Sie eine gültige E-Mail-Adresse ein.</div>');
+                return;
+            }
+            
+            // Create guest payment intent
+            $.ajax({
+                url: wp_lms_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'create_guest_payment_intent',
+                    course_id: this.selectedCourseId,
+                    customer_email: email,
+                    is_premium: this.selectedIsPremium,
+                    nonce: wp_lms_ajax.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        WP_LMS_Purchase.guestPaymentIntentId = response.data.payment_intent_id;
+                        WP_LMS_Purchase.confirmGuestPayment(email);
+                    } else {
+                        $('#wp-lms-guest-payment-status').html('<div class="error">' + response.data + '</div>');
+                    }
+                },
+                error: function() {
+                    $('#wp-lms-guest-payment-status').html('<div class="error">Netzwerkfehler. Bitte versuchen Sie es erneut.</div>');
+                }
+            });
+        },
+        
+        confirmGuestPayment: function(email) {
+            // In test mode, skip Stripe validation and directly confirm payment
+            if (this.guestPaymentIntentId && (this.guestPaymentIntentId.startsWith('pi_test_') || this.guestPaymentIntentId.startsWith('pi_guest_test_'))) {
+                // Simulate successful payment for test mode
+                $.ajax({
+                    url: wp_lms_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'confirm_guest_payment',
+                        payment_intent_id: this.guestPaymentIntentId,
+                        customer_email: email,
+                        nonce: wp_lms_ajax.nonce
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            $('#wp-lms-guest-payment-status').html('<div class="success">' + response.data.message + '</div>');
+                            setTimeout(function() {
+                                location.reload();
+                            }, 3000);
+                        } else {
+                            $('#wp-lms-guest-payment-status').html('<div class="error">' + response.data + '</div>');
+                        }
+                    }
+                });
+            } else {
+                // Real Stripe payment for live mode
+                this.stripe.confirmCardPayment(this.guestPaymentIntentId, {
+                    payment_method: {
+                        card: this.guestCardElement,
+                        billing_details: {
+                            email: email
+                        }
+                    }
+                }).then(function(result) {
+                    if (result.error) {
+                        $('#guest-card-errors').text(result.error.message);
+                    } else {
+                        // Payment succeeded
+                        $.ajax({
+                            url: wp_lms_ajax.ajax_url,
+                            type: 'POST',
+                            data: {
+                                action: 'confirm_guest_payment',
+                                payment_intent_id: WP_LMS_Purchase.guestPaymentIntentId,
+                                customer_email: email,
+                                nonce: wp_lms_ajax.nonce
+                            },
+                            success: function(response) {
+                                if (response.success) {
+                                    $('#wp-lms-guest-payment-status').html('<div class="success">' + response.data.message + '</div>');
+                                    setTimeout(function() {
+                                        location.reload();
+                                    }, 3000);
+                                } else {
+                                    $('#wp-lms-guest-payment-status').html('<div class="error">' + response.data + '</div>');
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        },
+        
+        handleGuestPaymentCancel: function() {
+            // Show purchase options again
+            $('.wp-lms-premium-purchase-options, .wp-lms-standard-purchase').show();
+            
+            // Hide payment form
+            $('#wp-lms-guest-purchase-form').hide();
+            
+            // Unmount card element properly
+            if (this.guestCardElement) {
+                try {
+                    this.guestCardElement.unmount();
+                } catch (e) {
+                    // Element might already be unmounted
+                    console.log('Card element already unmounted');
+                }
+                this.guestCardElement = null;
+            }
+            
+            // Clear any error messages
+            $('#wp-lms-guest-payment-status').empty();
+            $('#guest-card-errors').empty();
+            $('#guest-payment-email').val('');
+            
+            // Reset selection
+            this.selectedCourseId = null;
+            this.selectedIsPremium = null;
+            this.selectedPrice = null;
+            this.selectedCurrency = null;
+        },
+        
+        isValidEmail: function(email) {
+            var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
         },
         
         showError: function(message) {

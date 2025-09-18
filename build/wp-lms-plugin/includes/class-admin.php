@@ -55,6 +55,15 @@ class WP_LMS_Admin {
             'wp-lms-access',
             array($this, 'course_access_page')
         );
+        
+        add_submenu_page(
+            'wp-lms-settings',
+            __('Sales Management', 'wp-lms'),
+            __('Sales', 'wp-lms'),
+            'manage_options',
+            'wp-lms-sales',
+            array($this, 'sales_management_page')
+        );
     }
     
     /**
@@ -597,6 +606,216 @@ class WP_LMS_Admin {
         } else {
             echo '<p>' . __('No course access granted yet.', 'wp-lms') . '</p>';
         }
+    }
+    
+    /**
+     * Sales management page
+     */
+    public function sales_management_page() {
+        $database = new WP_LMS_Database();
+        
+        // Get filter parameters
+        $email_filter = isset($_GET['email_filter']) ? sanitize_text_field($_GET['email_filter']) : '';
+        $premium_filter = isset($_GET['premium_filter']) ? sanitize_text_field($_GET['premium_filter']) : '';
+        $course_filter = isset($_GET['course_filter']) ? intval($_GET['course_filter']) : '';
+        
+        // Build filters array
+        $filters = array();
+        if (!empty($email_filter)) {
+            $filters['email'] = $email_filter;
+        }
+        if ($premium_filter !== '') {
+            $filters['is_premium'] = ($premium_filter === '1');
+        }
+        if (!empty($course_filter)) {
+            $filters['course_id'] = $course_filter;
+        }
+        
+        // Get purchases and statistics
+        $purchases = $database->get_course_purchases($filters);
+        $stats = $database->get_purchase_statistics();
+        
+        // Get all courses for filter dropdown
+        $courses = get_posts(array(
+            'post_type' => 'lms_course',
+            'numberposts' => -1,
+            'post_status' => 'publish',
+            'orderby' => 'title',
+            'order' => 'ASC'
+        ));
+        
+        ?>
+        <div class="wrap">
+            <h1><?php _e('Sales Management', 'wp-lms'); ?></h1>
+            
+            <!-- Statistics Dashboard -->
+            <div class="wp-lms-sales-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                <div class="stat-card" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 10px 0; color: #333;"><?php _e('Total Sales', 'wp-lms'); ?></h3>
+                    <div style="font-size: 24px; font-weight: bold; color: #007cba;"><?php echo $stats['total_purchases']; ?></div>
+                    <div style="font-size: 14px; color: #666;">€<?php echo number_format($stats['total_revenue'], 2); ?></div>
+                </div>
+                
+                <div class="stat-card" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 10px 0; color: #333;"><?php _e('Standard Sales', 'wp-lms'); ?></h3>
+                    <div style="font-size: 24px; font-weight: bold; color: #46b450;"><?php echo $stats['standard_purchases']; ?></div>
+                    <div style="font-size: 14px; color: #666;">€<?php echo number_format($stats['standard_revenue'], 2); ?></div>
+                </div>
+                
+                <div class="stat-card" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 10px 0; color: #333;"><?php _e('Premium Sales', 'wp-lms'); ?></h3>
+                    <div style="font-size: 24px; font-weight: bold; color: #ff9800;"><?php echo $stats['premium_purchases']; ?></div>
+                    <div style="font-size: 14px; color: #666;">€<?php echo number_format($stats['premium_revenue'], 2); ?></div>
+                </div>
+                
+                <div class="stat-card" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h3 style="margin: 0 0 10px 0; color: #333;"><?php _e('Premium Rate', 'wp-lms'); ?></h3>
+                    <div style="font-size: 24px; font-weight: bold; color: #9c27b0;">
+                        <?php 
+                        $premium_rate = $stats['total_purchases'] > 0 ? ($stats['premium_purchases'] / $stats['total_purchases']) * 100 : 0;
+                        echo number_format($premium_rate, 1) . '%'; 
+                        ?>
+                    </div>
+                    <div style="font-size: 14px; color: #666;"><?php _e('of all sales', 'wp-lms'); ?></div>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="wp-lms-sales-filters" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                <h3><?php _e('Filter Sales', 'wp-lms'); ?></h3>
+                <form method="get" action="">
+                    <input type="hidden" name="page" value="wp-lms-sales" />
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end;">
+                        <div>
+                            <label for="email_filter"><?php _e('Email Filter', 'wp-lms'); ?></label>
+                            <input type="text" id="email_filter" name="email_filter" value="<?php echo esc_attr($email_filter); ?>" 
+                                   placeholder="<?php _e('Enter email or part of email', 'wp-lms'); ?>" class="regular-text" />
+                        </div>
+                        
+                        <div>
+                            <label for="premium_filter"><?php _e('Purchase Type', 'wp-lms'); ?></label>
+                            <select id="premium_filter" name="premium_filter">
+                                <option value=""><?php _e('All Types', 'wp-lms'); ?></option>
+                                <option value="0" <?php selected($premium_filter, '0'); ?>><?php _e('Standard Only', 'wp-lms'); ?></option>
+                                <option value="1" <?php selected($premium_filter, '1'); ?>><?php _e('Premium Only', 'wp-lms'); ?></option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="course_filter"><?php _e('Course', 'wp-lms'); ?></label>
+                            <select id="course_filter" name="course_filter">
+                                <option value=""><?php _e('All Courses', 'wp-lms'); ?></option>
+                                <?php foreach ($courses as $course): ?>
+                                    <option value="<?php echo $course->ID; ?>" <?php selected($course_filter, $course->ID); ?>>
+                                        <?php echo esc_html($course->post_title); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <input type="submit" class="button button-primary" value="<?php _e('Filter', 'wp-lms'); ?>" />
+                            <a href="<?php echo admin_url('admin.php?page=wp-lms-sales'); ?>" class="button"><?php _e('Clear', 'wp-lms'); ?></a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Sales Table -->
+            <div class="wp-lms-sales-table">
+                <?php if (!empty($purchases)): ?>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th><?php _e('Date', 'wp-lms'); ?></th>
+                                <th><?php _e('Customer', 'wp-lms'); ?></th>
+                                <th><?php _e('Email', 'wp-lms'); ?></th>
+                                <th><?php _e('Course', 'wp-lms'); ?></th>
+                                <th><?php _e('Type', 'wp-lms'); ?></th>
+                                <th><?php _e('Amount', 'wp-lms'); ?></th>
+                                <th><?php _e('Payment ID', 'wp-lms'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($purchases as $purchase): ?>
+                                <?php 
+                                $course = get_post($purchase->course_id);
+                                $course_title = $course ? $course->post_title : __('Unknown Course', 'wp-lms');
+                                $customer_email = $purchase->customer_email ?: $purchase->user_email;
+                                ?>
+                                <tr>
+                                    <td><?php echo date('Y-m-d H:i', strtotime($purchase->purchased_at)); ?></td>
+                                    <td><?php echo esc_html($purchase->display_name ?: __('Guest', 'wp-lms')); ?></td>
+                                    <td><?php echo esc_html($customer_email); ?></td>
+                                    <td><?php echo esc_html($course_title); ?></td>
+                                    <td>
+                                        <?php if ($purchase->is_premium): ?>
+                                            <span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                                <?php _e('PREMIUM', 'wp-lms'); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span style="background: #46b450; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                                <?php _e('STANDARD', 'wp-lms'); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <strong><?php echo esc_html($purchase->currency); ?> <?php echo number_format($purchase->amount, 2); ?></strong>
+                                    </td>
+                                    <td>
+                                        <code style="font-size: 11px;"><?php echo esc_html(substr($purchase->stripe_payment_intent_id, 0, 20)); ?>...</code>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    
+                    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px;">
+                        <strong><?php _e('Filtered Results:', 'wp-lms'); ?></strong>
+                        <?php 
+                        $filtered_total = count($purchases);
+                        $filtered_revenue = array_sum(array_column($purchases, 'amount'));
+                        $filtered_premium = count(array_filter($purchases, function($p) { return $p->is_premium; }));
+                        ?>
+                        <?php echo sprintf(__('%d sales totaling €%s (%d premium, %d standard)', 'wp-lms'), 
+                            $filtered_total, 
+                            number_format($filtered_revenue, 2),
+                            $filtered_premium,
+                            $filtered_total - $filtered_premium
+                        ); ?>
+                    </div>
+                    
+                <?php else: ?>
+                    <div class="notice notice-info">
+                        <p><?php _e('No sales found matching your criteria.', 'wp-lms'); ?></p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <style>
+        .wp-lms-sales-filters label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .wp-lms-sales-filters select,
+        .wp-lms-sales-filters input[type="text"] {
+            width: 100%;
+        }
+        
+        .wp-list-table th,
+        .wp-list-table td {
+            padding: 12px 8px;
+        }
+        
+        .wp-list-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        </style>
+        <?php
     }
     
     /**

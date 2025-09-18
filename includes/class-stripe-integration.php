@@ -61,6 +61,7 @@ class WP_LMS_Stripe_Integration {
         }
         
         $course_id = intval($_POST['course_id']);
+        $is_premium = isset($_POST['is_premium']) ? (bool)$_POST['is_premium'] : false;
         $user_id = get_current_user_id();
         
         // Check if user already purchased this course
@@ -80,16 +81,25 @@ class WP_LMS_Stripe_Integration {
             return;
         }
         
-        $price = get_post_meta($course_id, '_course_price', true);
-        $currency = get_post_meta($course_id, '_course_currency', true) ?: 'EUR';
-        
-        if (!$price || $price <= 0) {
-            wp_send_json_error('Invalid course price.');
-            return;
+        // Get price based on premium selection
+        if ($is_premium) {
+            $price = get_post_meta($course_id, '_course_premium_price', true);
+            if (!$price || $price <= 0) {
+                wp_send_json_error('Premium price not set for this course.');
+                return;
+            }
+        } else {
+            $price = get_post_meta($course_id, '_course_price', true);
+            if (!$price || $price <= 0) {
+                wp_send_json_error('Standard price not set for this course.');
+                return;
+            }
         }
         
+        $currency = get_post_meta($course_id, '_course_currency', true) ?: 'EUR';
+        
         // In test mode, simulate successful payment intent creation
-        $fake_payment_intent_id = 'pi_test_' . time() . '_' . $course_id . '_' . rand(1000, 9999);
+        $fake_payment_intent_id = 'pi_test_' . time() . '_' . $course_id . '_' . ($is_premium ? 'premium' : 'standard') . '_' . rand(1000, 9999);
         
         // For test mode, directly grant access without inserting duplicate records
         // First remove any existing pending purchases for this user/course
@@ -107,13 +117,19 @@ class WP_LMS_Stripe_Integration {
             array('%d', '%d', '%s')
         );
         
+        // Get user email for purchase record
+        $user = get_user_by('ID', $user_id);
+        $customer_email = $user ? $user->user_email : null;
+        
         // Now insert the new purchase record
         $result = $this->database->record_course_purchase(
             $user_id,
             $course_id,
             $fake_payment_intent_id,
             $price,
-            $currency
+            $currency,
+            $is_premium,
+            $customer_email
         );
         
         if (!$result) {
@@ -240,210 +256,186 @@ class WP_LMS_Stripe_Integration {
     /**
      * Generate purchase button HTML
      */
-    public function get_purchase_button($course_id, $user_id = null) {
+    public function get_purchase_button($course_id, $user_id = null, $is_premium = false) {
         if (!$user_id) {
             $user_id = get_current_user_id();
         }
         
-        if (!$user_id) {
-            // For guests, show purchase form with email field for account creation
-            return $this->get_guest_purchase_button($course_id);
-        }
-        
-        // Check if user already purchased
-        if ($this->database->has_user_purchased_course($user_id, $course_id)) {
+        // Check if user already purchased - if so, show ONLY continue button (no prices!)
+        if ($user_id && $this->database->has_user_purchased_course($user_id, $course_id)) {
             return $this->get_continue_button($course_id);
         }
         
+        if (!$user_id) {
+            // For guests, show full purchase options with premium/standard choice
+            return $this->get_guest_purchase_options($course_id);
+        }
+        
+        // User is logged in but hasn't purchased - show purchase options
         $course = get_post($course_id);
         $price = get_post_meta($course_id, '_course_price', true);
         $currency = get_post_meta($course_id, '_course_currency', true) ?: 'EUR';
+        $premium_enabled = get_post_meta($course_id, '_course_premium_enabled', true);
+        $premium_price = get_post_meta($course_id, '_course_premium_price', true);
+        $premium_features = get_post_meta($course_id, '_course_premium_features', true) ?: array();
+        $standard_features = get_post_meta($course_id, '_course_standard_features', true) ?: array();
         
         if (!$price || $price <= 0) {
-            return '<p>' . __('Course price not set.', 'wp-lms') . '</p>';
+            return '<p>' . __('Course price not set.', 'wp-lms') . '</p>' . 
+                   '<!-- DEBUG: Price: ' . $price . ', Premium enabled: ' . ($premium_enabled ? 'yes' : 'no') . ', Premium price: ' . $premium_price . ' -->';
         }
         
-        $currency_symbol = $this->get_currency_symbol($currency);
-        
         ob_start();
-        ?>
-        <div class="wp-lms-purchase-section">
-            <div class="course-price">
-                <span class="price"><?php echo $currency_symbol . number_format($price, 2); ?></span>
-                <span class="currency"><?php echo $currency; ?></span>
+        
+        if ($premium_enabled && $premium_price > 0): ?>
+            <!-- Premium Purchase Options -->
+            <div class="wp-lms-premium-purchase-options">
+                <h3><?php _e('Choose Your Version', 'wp-lms'); ?></h3>
+                
+                <div class="purchase-options-grid">
+                    <!-- Standard Option -->
+                    <div class="purchase-option standard-option">
+                        <div class="option-header">
+                            <h4><?php _e('Standard', 'wp-lms'); ?></h4>
+                            <div class="option-price">
+                                <span class="price"><?php echo number_format($price, 2); ?></span>
+                                <span class="currency"><?php echo $currency; ?></span>
+                            </div>
+                        </div>
+                        
+                        <div class="option-features">
+                            <ul>
+                                <li><?php _e('Full course access', 'wp-lms'); ?></li>
+                                <li><?php _e('All video lessons', 'wp-lms'); ?></li>
+                                <li><?php _e('Code examples', 'wp-lms'); ?></li>
+                                <li><?php _e('WASM demos', 'wp-lms'); ?></li>
+                                <?php 
+                                // Show configured standard features
+                                $feature_labels = array(
+                                    'support' => __('Email Support', 'wp-lms'),
+                                    'certificate' => __('Course Certificate', 'wp-lms'),
+                                    'downloads' => __('Downloadable Resources', 'wp-lms'),
+                                    'community' => __('Private Community Access', 'wp-lms'),
+                                    'updates' => __('Lifetime Updates', 'wp-lms')
+                                );
+                                
+                                foreach ($standard_features as $feature):
+                                    if (isset($feature_labels[$feature])):
+                                ?>
+                                    <li><?php echo $feature_labels[$feature]; ?></li>
+                                <?php 
+                                    endif;
+                                endforeach; 
+                                ?>
+                            </ul>
+                        </div>
+                        
+                        <div class="option-action">
+                            <button id="wp-lms-purchase-btn-standard" 
+                                    class="wp-lms-btn wp-lms-btn-primary" 
+                                    data-course-id="<?php echo $course_id; ?>"
+                                    data-is-premium="0">
+                                <?php _e('Standard kaufen', 'wp-lms'); ?>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Premium Option -->
+                    <div class="purchase-option premium-option">
+                        <div class="option-header">
+                            <h4><?php _e('Premium', 'wp-lms'); ?> <span class="premium-badge"><?php _e('BEST VALUE', 'wp-lms'); ?></span></h4>
+                            <div class="option-price">
+                                <span class="price"><?php echo number_format($premium_price, 2); ?></span>
+                                <span class="currency"><?php echo $currency; ?></span>
+                            </div>
+                        </div>
+                        
+                        <div class="option-features">
+                            <ul>
+                                <li><?php _e('Everything in Standard', 'wp-lms'); ?></li>
+                                <?php 
+                                foreach ($premium_features as $feature):
+                                    if (isset($feature_labels[$feature])):
+                                ?>
+                                    <li class="premium-feature"><?php echo $feature_labels[$feature]; ?></li>
+                                <?php 
+                                    endif;
+                                endforeach; 
+                                ?>
+                            </ul>
+                        </div>
+                        
+                        <div class="option-action">
+                            <button id="wp-lms-purchase-btn-premium" 
+                                    class="wp-lms-btn wp-lms-btn-premium" 
+                                    data-course-id="<?php echo $course_id; ?>"
+                                    data-is-premium="1">
+                                <?php _e('Premium kaufen', 'wp-lms'); ?>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <button id="wp-lms-purchase-btn" class="wp-lms-btn wp-lms-btn-primary" data-course-id="<?php echo $course_id; ?>">
-                <?php _e('Kurs kaufen', 'wp-lms'); ?>
-            </button>
+        <?php else: ?>
+            <!-- Standard Purchase Only -->
+            <div class="wp-lms-standard-purchase">
+                <div class="course-price">
+                    <span class="price"><?php echo number_format($price, 2); ?></span>
+                    <span class="currency"><?php echo $currency; ?></span>
+                </div>
+                <button id="wp-lms-purchase-btn-standard" 
+                        class="wp-lms-btn wp-lms-btn-primary" 
+                        data-course-id="<?php echo $course_id; ?>"
+                        data-is-premium="0">
+                    <?php _e('Kurs kaufen', 'wp-lms'); ?>
+                </button>
+            </div>
+        <?php endif; ?>
+        
+        <div class="wp-lms-purchase-section">
             
             <div id="wp-lms-payment-form" style="display: none;">
-                <div id="card-element">
-                    <!-- Stripe Elements will create form elements here -->
+                <div class="payment-summary">
+                    <h4><?php _e('Zahlungsübersicht', 'wp-lms'); ?></h4>
+                    <div class="purchase-details">
+                        <div class="course-info">
+                            <strong><?php echo esc_html($course->post_title); ?></strong>
+                        </div>
+                        <div class="version-info">
+                            <span id="selected-version"></span>
+                        </div>
+                        <div class="price-info">
+                            <span class="total-label"><?php _e('Gesamtbetrag:', 'wp-lms'); ?></span>
+                            <span class="total-price" id="total-price"></span>
+                        </div>
+                    </div>
                 </div>
+                
+                <div class="payment-fields">
+                    <div class="card-field">
+                        <label><?php _e('Kreditkarte:', 'wp-lms'); ?></label>
+                        <div id="card-element">
+                            <!-- Stripe Elements will create form elements here -->
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="card-errors" role="alert"></div>
-                <button id="submit-payment" class="wp-lms-btn wp-lms-btn-success">
-                    <?php _e('Kauf abschließen', 'wp-lms'); ?>
-                </button>
-                <button id="cancel-payment" class="wp-lms-btn wp-lms-btn-secondary">
-                    <?php _e('Abbrechen', 'wp-lms'); ?>
-                </button>
+                
+                <div class="payment-actions">
+                    <button id="submit-payment" class="wp-lms-btn wp-lms-btn-success">
+                        <span id="payment-button-text"><?php _e('Kauf abschließen', 'wp-lms'); ?></span>
+                        <span id="payment-amount"></span>
+                    </button>
+                    <button id="cancel-payment" class="wp-lms-btn wp-lms-btn-secondary">
+                        <?php _e('Abbrechen', 'wp-lms'); ?>
+                    </button>
+                </div>
             </div>
             
             <div id="wp-lms-payment-status"></div>
         </div>
         
-        <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Stripe integration loading...');
-            
-            if (typeof Stripe === 'undefined') {
-                console.error('Stripe.js not loaded');
-                document.getElementById('wp-lms-payment-status').innerHTML = 
-                    '<div class="error">Stripe.js konnte nicht geladen werden. Bitte laden Sie die Seite neu.</div>';
-                return;
-            }
-            
-            if (typeof jQuery === 'undefined') {
-                console.error('jQuery not loaded');
-                document.getElementById('wp-lms-payment-status').innerHTML = 
-                    '<div class="error">jQuery konnte nicht geladen werden. Bitte laden Sie die Seite neu.</div>';
-                return;
-            }
-            
-            const publishableKey = '<?php echo $this->get_publishable_key(); ?>';
-            if (!publishableKey) {
-                console.error('Stripe publishable key not configured');
-                document.getElementById('wp-lms-payment-status').innerHTML = 
-                    '<div class="error">Stripe ist nicht konfiguriert. Bitte kontaktieren Sie den Administrator.</div>';
-                return;
-            }
-            
-            const stripe = Stripe(publishableKey);
-            const elements = stripe.elements();
-            const cardElement = elements.create('card');
-            
-            let paymentIntentId = null;
-            
-            const purchaseBtn = document.getElementById('wp-lms-purchase-btn');
-            if (!purchaseBtn) {
-                console.error('Purchase button not found');
-                return;
-            }
-            
-            purchaseBtn.addEventListener('click', function() {
-                console.log('Purchase button clicked');
-                const courseId = this.getAttribute('data-course-id');
-                
-                // Create payment intent
-                jQuery.ajax({
-                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
-                    type: 'POST',
-                    data: {
-                        action: 'create_payment_intent',
-                        course_id: courseId,
-                        nonce: '<?php echo wp_create_nonce('wp_lms_nonce'); ?>'
-                    },
-                    success: function(response) {
-                        console.log('Payment intent response:', response);
-                        if (response.success) {
-                            if (response.data.already_purchased) {
-                                // User already has access, reload page
-                                document.getElementById('wp-lms-payment-status').innerHTML = 
-                                    '<div class="success">' + response.data.message + '</div>';
-                                setTimeout(function() {
-                                    location.reload();
-                                }, 2000);
-                            } else {
-                                // Show payment form
-                                paymentIntentId = response.data.payment_intent_id;
-                                document.getElementById('wp-lms-purchase-btn').style.display = 'none';
-                                document.getElementById('wp-lms-payment-form').style.display = 'block';
-                                cardElement.mount('#card-element');
-                            }
-                        } else {
-                            var errorMessage = response.data || response.message || 'Unbekannter Fehler aufgetreten.';
-                            document.getElementById('wp-lms-payment-status').innerHTML = 
-                                '<div class="error">' + errorMessage + '</div>';
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX error:', error);
-                        document.getElementById('wp-lms-payment-status').innerHTML = 
-                            '<div class="error">Netzwerkfehler. Bitte versuchen Sie es erneut.</div>';
-                    }
-                });
-            });
-            
-            document.getElementById('submit-payment').addEventListener('click', function() {
-                // In test mode, skip Stripe validation and directly confirm payment
-                if (paymentIntentId && paymentIntentId.startsWith('pi_test_')) {
-                    // Simulate successful payment for test mode
-                    jQuery.ajax({
-                        url: '<?php echo admin_url('admin-ajax.php'); ?>',
-                        type: 'POST',
-                        data: {
-                            action: 'confirm_payment',
-                            payment_intent_id: paymentIntentId,
-                            nonce: '<?php echo wp_create_nonce('wp_lms_nonce'); ?>'
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                document.getElementById('wp-lms-payment-status').innerHTML = 
-                                    '<div class="success">' + response.data.message + '</div>';
-                                setTimeout(function() {
-                                    location.reload();
-                                }, 2000);
-                            } else {
-                                document.getElementById('wp-lms-payment-status').innerHTML = 
-                                    '<div class="error">' + response.data + '</div>';
-                            }
-                        }
-                    });
-                } else {
-                    // Real Stripe payment for live mode
-                    stripe.confirmCardPayment(paymentIntentId, {
-                        payment_method: {
-                            card: cardElement
-                        }
-                    }).then(function(result) {
-                        if (result.error) {
-                            document.getElementById('card-errors').textContent = result.error.message;
-                        } else {
-                            // Payment succeeded
-                            jQuery.ajax({
-                                url: '<?php echo admin_url('admin-ajax.php'); ?>',
-                                type: 'POST',
-                                data: {
-                                    action: 'confirm_payment',
-                                    payment_intent_id: paymentIntentId,
-                                    nonce: '<?php echo wp_create_nonce('wp_lms_nonce'); ?>'
-                                },
-                                success: function(response) {
-                                    if (response.success) {
-                                        document.getElementById('wp-lms-payment-status').innerHTML = 
-                                            '<div class="success">' + response.data.message + '</div>';
-                                        setTimeout(function() {
-                                            location.reload();
-                                        }, 2000);
-                                    } else {
-                                        document.getElementById('wp-lms-payment-status').innerHTML = 
-                                            '<div class="error">' + response.data + '</div>';
-                                    }
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-            
-            document.getElementById('cancel-payment').addEventListener('click', function() {
-                document.getElementById('wp-lms-purchase-btn').style.display = 'block';
-                document.getElementById('wp-lms-payment-form').style.display = 'none';
-                cardElement.unmount();
-            });
-        });
-        </script>
         <?php
         return ob_get_clean();
     }
@@ -477,9 +469,197 @@ class WP_LMS_Stripe_Integration {
     }
     
     /**
-     * Generate guest purchase button with email registration
+     * Generate guest purchase options with premium/standard choice
      */
-    public function get_guest_purchase_button($course_id) {
+    public function get_guest_purchase_options($course_id) {
+        $course = get_post($course_id);
+        $price = get_post_meta($course_id, '_course_price', true);
+        $currency = get_post_meta($course_id, '_course_currency', true) ?: 'EUR';
+        $premium_enabled = get_post_meta($course_id, '_course_premium_enabled', true);
+        $premium_price = get_post_meta($course_id, '_course_premium_price', true);
+        $premium_features = get_post_meta($course_id, '_course_premium_features', true) ?: array();
+        $standard_features = get_post_meta($course_id, '_course_standard_features', true) ?: array();
+        
+        if (!$price || $price <= 0) {
+            return '<p>' . __('Course price not set.', 'wp-lms') . '</p>';
+        }
+        
+        $login_url = wp_login_url(get_permalink());
+        
+        ob_start();
+        
+        if ($premium_enabled && $premium_price > 0): ?>
+            <!-- Guest Premium Purchase Options -->
+            <div class="wp-lms-premium-purchase-options">
+                <h3><?php _e('Choose Your Version', 'wp-lms'); ?></h3>
+                
+                <div class="purchase-options-grid">
+                    <!-- Standard Option -->
+                    <div class="purchase-option standard-option">
+                        <div class="option-header">
+                            <h4><?php _e('Standard', 'wp-lms'); ?></h4>
+                            <div class="option-price">
+                                <span class="price"><?php echo number_format($price, 2); ?></span>
+                                <span class="currency"><?php echo $currency; ?></span>
+                            </div>
+                        </div>
+                        
+                        <div class="option-features">
+                            <ul>
+                                <li><?php _e('Full course access', 'wp-lms'); ?></li>
+                                <li><?php _e('All video lessons', 'wp-lms'); ?></li>
+                                <li><?php _e('Code examples', 'wp-lms'); ?></li>
+                                <li><?php _e('WASM demos', 'wp-lms'); ?></li>
+                                <?php 
+                                // Show configured standard features
+                                $feature_labels = array(
+                                    'support' => __('Email Support', 'wp-lms'),
+                                    'certificate' => __('Course Certificate', 'wp-lms'),
+                                    'downloads' => __('Downloadable Resources', 'wp-lms'),
+                                    'community' => __('Private Community Access', 'wp-lms'),
+                                    'updates' => __('Lifetime Updates', 'wp-lms')
+                                );
+                                
+                                foreach ($standard_features as $feature):
+                                    if (isset($feature_labels[$feature])):
+                                ?>
+                                    <li><?php echo $feature_labels[$feature]; ?></li>
+                                <?php 
+                                    endif;
+                                endforeach; 
+                                ?>
+                            </ul>
+                        </div>
+                        
+                        <div class="option-action">
+                            <button class="wp-lms-btn wp-lms-btn-primary wp-lms-guest-purchase-btn" 
+                                    data-course-id="<?php echo $course_id; ?>"
+                                    data-is-premium="0"
+                                    data-price="<?php echo $price; ?>"
+                                    data-currency="<?php echo $currency; ?>">
+                                <?php _e('Standard kaufen', 'wp-lms'); ?>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Premium Option -->
+                    <div class="purchase-option premium-option">
+                        <div class="option-header">
+                            <h4><?php _e('Premium', 'wp-lms'); ?> <span class="premium-badge"><?php _e('BEST VALUE', 'wp-lms'); ?></span></h4>
+                            <div class="option-price">
+                                <span class="price"><?php echo number_format($premium_price, 2); ?></span>
+                                <span class="currency"><?php echo $currency; ?></span>
+                            </div>
+                        </div>
+                        
+                        <div class="option-features">
+                            <ul>
+                                <li><?php _e('Everything in Standard', 'wp-lms'); ?></li>
+                                <?php 
+                                foreach ($premium_features as $feature):
+                                    if (isset($feature_labels[$feature])):
+                                ?>
+                                    <li class="premium-feature"><?php echo $feature_labels[$feature]; ?></li>
+                                <?php 
+                                    endif;
+                                endforeach; 
+                                ?>
+                            </ul>
+                        </div>
+                        
+                        <div class="option-action">
+                            <button class="wp-lms-btn wp-lms-btn-premium wp-lms-guest-purchase-btn" 
+                                    data-course-id="<?php echo $course_id; ?>"
+                                    data-is-premium="1"
+                                    data-price="<?php echo $premium_price; ?>"
+                                    data-currency="<?php echo $currency; ?>">
+                                <?php _e('Premium kaufen', 'wp-lms'); ?>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <?php else: ?>
+            <!-- Standard Purchase Only -->
+            <div class="wp-lms-standard-purchase">
+                <div class="course-price">
+                    <span class="price"><?php echo number_format($price, 2); ?></span>
+                    <span class="currency"><?php echo $currency; ?></span>
+                </div>
+                <button class="wp-lms-btn wp-lms-btn-primary wp-lms-guest-purchase-btn" 
+                        data-course-id="<?php echo $course_id; ?>"
+                        data-is-premium="0"
+                        data-price="<?php echo $price; ?>"
+                        data-currency="<?php echo $currency; ?>">
+                    <?php _e('Kurs kaufen', 'wp-lms'); ?>
+                </button>
+            </div>
+        <?php endif; ?>
+        
+        <!-- Guest Purchase Form -->
+        <div id="wp-lms-guest-purchase-form" style="display: none;">
+            <div class="payment-summary">
+                <h4><?php _e('Zahlungsübersicht', 'wp-lms'); ?></h4>
+                <div class="purchase-details">
+                    <div class="course-info">
+                        <strong><?php echo esc_html($course->post_title); ?></strong>
+                    </div>
+                    <div class="version-info">
+                        <span id="guest-selected-version"></span>
+                    </div>
+                    <div class="price-info">
+                        <span class="total-label"><?php _e('Gesamtbetrag:', 'wp-lms'); ?></span>
+                        <span class="total-price" id="guest-total-price"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="payment-fields">
+                <div class="email-field">
+                    <label for="guest-payment-email"><?php _e('E-Mail-Adresse:', 'wp-lms'); ?></label>
+                    <input type="email" id="guest-payment-email" 
+                           placeholder="<?php _e('Ihre E-Mail-Adresse', 'wp-lms'); ?>" 
+                           required>
+                    <small><?php _e('Ein Konto wird automatisch für Sie erstellt.', 'wp-lms'); ?></small>
+                </div>
+                
+                <div class="card-field">
+                    <label><?php _e('Kreditkarte:', 'wp-lms'); ?></label>
+                    <div id="guest-card-element">
+                        <!-- Stripe Elements will create form elements here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="guest-card-errors" role="alert"></div>
+            
+            <div class="payment-actions">
+                <button id="submit-guest-payment" class="wp-lms-btn wp-lms-btn-success">
+                    <span id="guest-payment-button-text"><?php _e('Kauf abschließen', 'wp-lms'); ?></span>
+                    <span id="guest-payment-amount"></span>
+                </button>
+                <button id="cancel-guest-payment" class="wp-lms-btn wp-lms-btn-secondary">
+                    <?php _e('Abbrechen', 'wp-lms'); ?>
+                </button>
+            </div>
+            
+            <div class="login-option" style="margin-top: 20px; text-align: center;">
+                <p><?php _e('Bereits ein Konto?', 'wp-lms'); ?> 
+                   <a href="<?php echo esc_url($login_url); ?>"><?php _e('Hier anmelden', 'wp-lms'); ?></a>
+                </p>
+            </div>
+        </div>
+        
+        <div id="wp-lms-guest-payment-status"></div>
+        
+        <?php
+        return ob_get_clean();
+    }
+    
+    /**
+     * Generate guest purchase button with email registration (Legacy - keeping for compatibility)
+     */
+    public function get_guest_purchase_button($course_id, $is_premium = false) {
         $course = get_post($course_id);
         $price = get_post_meta($course_id, '_course_price', true);
         $currency = get_post_meta($course_id, '_course_currency', true) ?: 'EUR';
@@ -494,11 +674,6 @@ class WP_LMS_Stripe_Integration {
         ob_start();
         ?>
         <div class="wp-lms-guest-purchase-section">
-            <div class="course-price">
-                <span class="price"><?php echo $currency_symbol . number_format($price, 2); ?></span>
-                <span class="currency"><?php echo $currency; ?></span>
-            </div>
-            
             <div class="purchase-options">
                 <div class="guest-purchase-option">
                     <h4><?php _e('Kurs kaufen', 'wp-lms'); ?></h4>

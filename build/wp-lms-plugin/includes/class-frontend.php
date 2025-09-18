@@ -138,6 +138,13 @@ class WP_LMS_Frontend {
             return $content;
         }
         
+        // Prevent multiple executions
+        static $already_processed = false;
+        if ($already_processed) {
+            return $content;
+        }
+        $already_processed = true;
+        
         global $post;
         $course_id = $post->ID;
         $user_id = get_current_user_id();
@@ -159,6 +166,9 @@ class WP_LMS_Frontend {
     private function render_course_overview($course_id, $user_id, $original_content) {
         $price = get_post_meta($course_id, '_course_price', true);
         $currency = get_post_meta($course_id, '_course_currency', true) ?: 'EUR';
+        $premium_enabled = get_post_meta($course_id, '_course_premium_enabled', true);
+        $premium_price = get_post_meta($course_id, '_course_premium_price', true);
+        $premium_features = get_post_meta($course_id, '_course_premium_features', true) ?: array();
         
         // Get course structure
         $chapters = $this->get_course_chapters($course_id);
@@ -181,16 +191,38 @@ class WP_LMS_Frontend {
                                     <ul class="lessons-list">
                                         <?php foreach ($chapter->lessons as $lesson): ?>
                                             <li class="lesson-item">
-                                                <span class="lesson-title"><?php echo esc_html($lesson->post_title); ?></span>
-                                                <?php 
-                                                $duration = get_post_meta($lesson->ID, '_lesson_duration', true);
-                                                if ($duration): 
-                                                    $minutes = floor($duration / 60);
-                                                    $seconds = $duration % 60;
-                                                    $formatted_duration = sprintf('%d:%02d', $minutes, $seconds);
-                                                ?>
-                                                    <span class="lesson-duration"><?php echo $formatted_duration; ?></span>
-                                                <?php endif; ?>
+                                                <div class="lesson-main-content">
+                                                    <div class="lesson-title"><?php echo esc_html($lesson->post_title); ?></div>
+                                                    
+                                                    <?php 
+                                                    // Check if preview is enabled for this lesson
+                                                    $preview_enabled = get_post_meta($lesson->ID, '_lesson_preview_enabled', true);
+                                                    $video_url = get_post_meta($lesson->ID, '_lesson_video_url', true);
+                                                    
+                                    if ($preview_enabled && $video_url): ?>
+                                        <div class="lesson-preview-action wp-lms-preview-container-unique">
+                                            <button class="wp-lms-btn wp-lms-btn-secondary wp-lms-preview-btn wp-lms-preview-btn-unique" 
+                                                    data-lesson-id="<?php echo $lesson->ID; ?>"
+                                                    data-lesson-title="<?php echo esc_attr($lesson->post_title); ?>"
+                                                    data-video-url="<?php echo esc_attr($video_url); ?>"
+                                                    id="wp-lms-preview-<?php echo $lesson->ID; ?>">
+                                                <?php _e('Vorschau', 'wp-lms'); ?>
+                                            </button>
+                                        </div>
+                                    <?php endif; ?>
+                                                </div>
+                                                
+                                                <div class="lesson-duration-column">
+                                                    <?php 
+                                                    $duration = get_post_meta($lesson->ID, '_lesson_duration', true);
+                                                    if ($duration): 
+                                                        $minutes = floor($duration / 60);
+                                                        $seconds = $duration % 60;
+                                                        $formatted_duration = sprintf('%d:%02d', $minutes, $seconds);
+                                                    ?>
+                                                        <span class="lesson-duration"><?php echo $formatted_duration; ?></span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </li>
                                         <?php endforeach; ?>
                                     </ul>
@@ -204,7 +236,11 @@ class WP_LMS_Frontend {
             </div>
             
             <div class="course-purchase">
-                <?php echo $this->stripe->get_purchase_button($course_id, $user_id); ?>
+                <?php 
+                // Debug output
+                echo '<!-- DEBUG: Course ID: ' . $course_id . ', User ID: ' . $user_id . ' -->';
+                echo $this->stripe->get_purchase_button($course_id, $user_id, false); 
+                ?>
             </div>
         </div>
         <?php

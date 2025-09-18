@@ -28,11 +28,15 @@ class WP_LMS_Database {
             amount decimal(10,2) NOT NULL,
             currency varchar(3) NOT NULL DEFAULT 'EUR',
             status varchar(20) NOT NULL DEFAULT 'pending',
+            is_premium tinyint(1) NOT NULL DEFAULT 0,
+            customer_email varchar(255) DEFAULT NULL,
             purchased_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY user_id (user_id),
             KEY course_id (course_id),
-            KEY stripe_payment_intent_id (stripe_payment_intent_id)
+            KEY stripe_payment_intent_id (stripe_payment_intent_id),
+            KEY customer_email (customer_email),
+            KEY is_premium (is_premium)
         ) $charset_collate;";
         
         // Table for user progress
@@ -115,7 +119,7 @@ class WP_LMS_Database {
     /**
      * Record course purchase
      */
-    public function record_course_purchase($user_id, $course_id, $stripe_payment_intent_id, $amount, $currency = 'EUR') {
+    public function record_course_purchase($user_id, $course_id, $stripe_payment_intent_id, $amount, $currency = 'EUR', $is_premium = false, $customer_email = null) {
         global $wpdb;
         
         $table_purchases = $wpdb->prefix . 'lms_course_purchases';
@@ -128,9 +132,11 @@ class WP_LMS_Database {
                 'stripe_payment_intent_id' => $stripe_payment_intent_id,
                 'amount' => $amount,
                 'currency' => $currency,
-                'status' => 'pending'
+                'status' => 'pending',
+                'is_premium' => $is_premium ? 1 : 0,
+                'customer_email' => $customer_email
             ),
-            array('%d', '%d', '%s', '%f', '%s', '%s')
+            array('%d', '%d', '%s', '%f', '%s', '%s', '%d', '%s')
         );
     }
     
@@ -458,5 +464,126 @@ class WP_LMS_Database {
             ),
             array('%d', '%d')
         );
+    }
+    
+    /**
+     * Check if user has premium access to a course
+     */
+    public function has_user_premium_access($user_id, $course_id) {
+        global $wpdb;
+        
+        $table_purchases = $wpdb->prefix . 'lms_course_purchases';
+        
+        $result = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_purchases 
+             WHERE user_id = %d AND course_id = %d AND status = 'completed' AND is_premium = 1",
+            $user_id,
+            $course_id
+        ));
+        
+        return $result > 0;
+    }
+    
+    /**
+     * Get all course purchases with filters
+     */
+    public function get_course_purchases($filters = array()) {
+        global $wpdb;
+        
+        $table_purchases = $wpdb->prefix . 'lms_course_purchases';
+        
+        $where_conditions = array("status = 'completed'");
+        $where_values = array();
+        
+        // Email filter - search in both customer_email and user_email
+        if (!empty($filters['email'])) {
+            $where_conditions[] = "(customer_email LIKE %s OR u.user_email LIKE %s)";
+            $search_term = '%' . $wpdb->esc_like($filters['email']) . '%';
+            $where_values[] = $search_term;
+            $where_values[] = $search_term;
+        }
+        
+        // Premium filter
+        if (isset($filters['is_premium'])) {
+            $where_conditions[] = "is_premium = %d";
+            $where_values[] = $filters['is_premium'] ? 1 : 0;
+        }
+        
+        // Course filter
+        if (!empty($filters['course_id'])) {
+            $where_conditions[] = "course_id = %d";
+            $where_values[] = $filters['course_id'];
+        }
+        
+        $where_clause = implode(' AND ', $where_conditions);
+        
+        $query = "SELECT p.*, u.display_name, u.user_email 
+                  FROM $table_purchases p 
+                  LEFT JOIN {$wpdb->users} u ON p.user_id = u.ID 
+                  WHERE $where_clause 
+                  ORDER BY p.purchased_at DESC";
+        
+        if (!empty($where_values)) {
+            return $wpdb->get_results($wpdb->prepare($query, $where_values));
+        } else {
+            return $wpdb->get_results($query);
+        }
+    }
+    
+    /**
+     * Get purchase statistics
+     */
+    public function get_purchase_statistics() {
+        global $wpdb;
+        
+        $table_purchases = $wpdb->prefix . 'lms_course_purchases';
+        
+        $stats = array();
+        
+        // Total purchases
+        $stats['total_purchases'] = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_purchases WHERE status = 'completed'"
+        );
+        
+        // Premium purchases
+        $stats['premium_purchases'] = $wpdb->get_var(
+            "SELECT COUNT(*) FROM $table_purchases WHERE status = 'completed' AND is_premium = 1"
+        );
+        
+        // Standard purchases
+        $stats['standard_purchases'] = $stats['total_purchases'] - $stats['premium_purchases'];
+        
+        // Total revenue
+        $stats['total_revenue'] = $wpdb->get_var(
+            "SELECT SUM(amount) FROM $table_purchases WHERE status = 'completed'"
+        ) ?: 0;
+        
+        // Premium revenue
+        $stats['premium_revenue'] = $wpdb->get_var(
+            "SELECT SUM(amount) FROM $table_purchases WHERE status = 'completed' AND is_premium = 1"
+        ) ?: 0;
+        
+        // Standard revenue
+        $stats['standard_revenue'] = $stats['total_revenue'] - $stats['premium_revenue'];
+        
+        return $stats;
+    }
+    
+    /**
+     * Get user's purchase details for a course
+     */
+    public function get_user_course_purchase($user_id, $course_id) {
+        global $wpdb;
+        
+        $table_purchases = $wpdb->prefix . 'lms_course_purchases';
+        
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table_purchases 
+             WHERE user_id = %d AND course_id = %d AND status = 'completed'
+             ORDER BY purchased_at DESC
+             LIMIT 1",
+            $user_id,
+            $course_id
+        ));
     }
 }

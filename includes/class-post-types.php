@@ -136,10 +136,16 @@ class WP_LMS_Post_Types {
         
         $price = get_post_meta($post->ID, '_course_price', true);
         $currency = get_post_meta($post->ID, '_course_currency', true) ?: 'EUR';
+        $premium_enabled = get_post_meta($post->ID, '_course_premium_enabled', true);
+        $premium_price = get_post_meta($post->ID, '_course_premium_price', true);
+        $premium_features = get_post_meta($post->ID, '_course_premium_features', true) ?: array();
+        $standard_features = get_post_meta($post->ID, '_course_standard_features', true) ?: array();
         
         echo '<table class="form-table">';
+        
+        // Standard Price
         echo '<tr>';
-        echo '<th><label for="course_price">' . __('Price', 'wp-lms') . '</label></th>';
+        echo '<th><label for="course_price">' . __('Standard Price', 'wp-lms') . '</label></th>';
         echo '<td>';
         echo '<input type="number" id="course_price" name="course_price" value="' . esc_attr($price) . '" step="0.01" min="0" />';
         echo '<select name="course_currency">';
@@ -149,7 +155,91 @@ class WP_LMS_Post_Types {
         echo '</select>';
         echo '</td>';
         echo '</tr>';
+        
+        // Standard Features
+        echo '<tr>';
+        echo '<th><label>' . __('Standard Features', 'wp-lms') . '</label></th>';
+        echo '<td>';
+        
+        $available_features = array(
+            'support' => __('Email Support', 'wp-lms'),
+            'certificate' => __('Course Certificate', 'wp-lms'),
+            'downloads' => __('Downloadable Resources', 'wp-lms'),
+            'community' => __('Private Community Access', 'wp-lms'),
+            'updates' => __('Lifetime Updates', 'wp-lms')
+        );
+        
+        foreach ($available_features as $feature_key => $feature_label) {
+            $checked = in_array($feature_key, $standard_features);
+            echo '<label style="display: block; margin-bottom: 5px;">';
+            echo '<input type="checkbox" name="course_standard_features[]" value="' . $feature_key . '"' . checked($checked, true, false) . ' />';
+            echo ' ' . $feature_label;
+            echo '</label>';
+        }
+        
+        echo '<p class="description">' . __('Wählen Sie die Features aus, die in der Standard-Version enthalten sind.', 'wp-lms') . '</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        // Premium Options
+        echo '<tr>';
+        echo '<th><label for="course_premium_enabled">' . __('Premium Version', 'wp-lms') . '</label></th>';
+        echo '<td>';
+        echo '<label>';
+        echo '<input type="checkbox" id="course_premium_enabled" name="course_premium_enabled" value="1"' . checked($premium_enabled, '1', false) . ' />';
+        echo ' ' . __('Offer Premium version of this course', 'wp-lms');
+        echo '</label>';
+        echo '<p class="description">' . __('When enabled, customers can choose between Standard and Premium versions.', 'wp-lms') . '</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        echo '<tr id="premium_price_row" style="' . ($premium_enabled ? '' : 'display: none;') . '">';
+        echo '<th><label for="course_premium_price">' . __('Premium Price', 'wp-lms') . '</label></th>';
+        echo '<td>';
+        echo '<input type="number" id="course_premium_price" name="course_premium_price" value="' . esc_attr($premium_price) . '" step="0.01" min="0" />';
+        echo '<p class="description">' . __('Price for the premium version (should be higher than standard price).', 'wp-lms') . '</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        echo '<tr id="premium_features_row" style="' . ($premium_enabled ? '' : 'display: none;') . '">';
+        echo '<th><label>' . __('Premium Features', 'wp-lms') . '</label></th>';
+        echo '<td>';
+        
+        $available_features = array(
+            'support' => __('Email Support', 'wp-lms'),
+            'certificate' => __('Course Certificate', 'wp-lms'),
+            'downloads' => __('Downloadable Resources', 'wp-lms'),
+            'community' => __('Private Community Access', 'wp-lms'),
+            'updates' => __('Lifetime Updates', 'wp-lms')
+        );
+        
+        foreach ($available_features as $feature_key => $feature_label) {
+            $checked = in_array($feature_key, $premium_features);
+            echo '<label style="display: block; margin-bottom: 5px;">';
+            echo '<input type="checkbox" name="course_premium_features[]" value="' . $feature_key . '"' . checked($checked, true, false) . ' />';
+            echo ' ' . $feature_label;
+            echo '</label>';
+        }
+        
+        echo '<p class="description">' . __('Select which premium features are included with the premium version.', 'wp-lms') . '</p>';
+        echo '</td>';
+        echo '</tr>';
+        
         echo '</table>';
+        
+        ?>
+        <script>
+        jQuery(document).ready(function($) {
+            $('#course_premium_enabled').change(function() {
+                if ($(this).is(':checked')) {
+                    $('#premium_price_row, #premium_features_row').show();
+                } else {
+                    $('#premium_price_row, #premium_features_row').hide();
+                }
+            });
+        });
+        </script>
+        <?php
     }
     
     public function chapter_details_callback($post) {
@@ -190,6 +280,7 @@ class WP_LMS_Post_Types {
         $duration = get_post_meta($post->ID, '_lesson_duration', true);
         $video_url = get_post_meta($post->ID, '_lesson_video_url', true);
         $order = get_post_meta($post->ID, '_lesson_order', true);
+        $preview_enabled = get_post_meta($post->ID, '_lesson_preview_enabled', true);
         
         $chapters = get_posts(array(
             'post_type' => 'lms_chapter',
@@ -219,6 +310,16 @@ class WP_LMS_Post_Types {
         echo '<tr>';
         echo '<th><label for="lesson_video_url">' . __('Video URL', 'wp-lms') . '</label></th>';
         echo '<td><input type="url" id="lesson_video_url" name="lesson_video_url" value="' . esc_attr($video_url) . '" class="regular-text" /></td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<th><label for="lesson_preview_enabled">' . __('Preview Available', 'wp-lms') . '</label></th>';
+        echo '<td>';
+        echo '<label>';
+        echo '<input type="checkbox" id="lesson_preview_enabled" name="lesson_preview_enabled" value="1"' . checked($preview_enabled, '1', false) . ' />';
+        echo ' ' . __('Allow users to preview this lesson without purchasing the course', 'wp-lms');
+        echo '</label>';
+        echo '<p class="description">' . __('When enabled, a "Preview" button will be shown for this lesson in the course overview, allowing potential customers to watch the video before purchasing.', 'wp-lms') . '</p>';
+        echo '</td>';
         echo '</tr>';
         echo '<tr>';
         echo '<th><label for="lesson_order">' . __('Order', 'wp-lms') . '</label></th>';
@@ -348,6 +449,32 @@ class WP_LMS_Post_Types {
             if (isset($_POST['course_currency'])) {
                 update_post_meta($post_id, '_course_currency', sanitize_text_field($_POST['course_currency']));
             }
+            
+            // Save standard features
+            if (isset($_POST['course_standard_features']) && is_array($_POST['course_standard_features'])) {
+                $standard_features = array_map('sanitize_text_field', $_POST['course_standard_features']);
+                update_post_meta($post_id, '_course_standard_features', $standard_features);
+            } else {
+                delete_post_meta($post_id, '_course_standard_features');
+            }
+            
+            // Save premium settings
+            if (isset($_POST['course_premium_enabled'])) {
+                update_post_meta($post_id, '_course_premium_enabled', '1');
+            } else {
+                delete_post_meta($post_id, '_course_premium_enabled');
+            }
+            
+            if (isset($_POST['course_premium_price'])) {
+                update_post_meta($post_id, '_course_premium_price', sanitize_text_field($_POST['course_premium_price']));
+            }
+            
+            if (isset($_POST['course_premium_features']) && is_array($_POST['course_premium_features'])) {
+                $premium_features = array_map('sanitize_text_field', $_POST['course_premium_features']);
+                update_post_meta($post_id, '_course_premium_features', $premium_features);
+            } else {
+                delete_post_meta($post_id, '_course_premium_features');
+            }
         }
         
         // Save chapter details
@@ -370,6 +497,11 @@ class WP_LMS_Post_Types {
             }
             if (isset($_POST['lesson_video_url'])) {
                 update_post_meta($post_id, '_lesson_video_url', esc_url_raw($_POST['lesson_video_url']));
+            }
+            if (isset($_POST['lesson_preview_enabled'])) {
+                update_post_meta($post_id, '_lesson_preview_enabled', '1');
+            } else {
+                delete_post_meta($post_id, '_lesson_preview_enabled');
             }
             if (isset($_POST['lesson_order'])) {
                 update_post_meta($post_id, '_lesson_order', intval($_POST['lesson_order']));
