@@ -750,7 +750,11 @@
         stripe: null,
         elements: null,
         cardElement: null,
+        guestCardElement: null,
         paymentIntentId: null,
+        guestPaymentIntentId: null,
+        cardElementMounted: false,
+        guestCardElementMounted: false,
         
         init: function() {
             if (typeof Stripe === 'undefined') {
@@ -763,7 +767,57 @@
                 this.stripe = Stripe(wp_lms_ajax.stripe_publishable_key);
                 this.elements = this.stripe.elements();
                 this.bindEvents();
+                this.initializeCardElements();
             }
+        },
+        
+        // Initialize card elements once and keep them stable
+        initializeCardElements: function() {
+            // Create card elements once
+            this.cardElement = this.elements.create('card');
+            this.guestCardElement = this.elements.create('card');
+            
+            // Mount them when their containers become available
+            this.mountCardElementsWhenReady();
+        },
+        
+        // Mount card elements when containers are ready
+        mountCardElementsWhenReady: function() {
+            var self = this;
+            
+            // Check for regular card element container
+            var checkRegularContainer = setInterval(function() {
+                if ($('#card-element').length > 0 && !self.cardElementMounted) {
+                    try {
+                        self.cardElement.mount('#card-element');
+                        self.cardElementMounted = true;
+                        console.log('Regular card element mounted');
+                        clearInterval(checkRegularContainer);
+                    } catch (e) {
+                        console.log('Failed to mount regular card element:', e);
+                    }
+                }
+            }, 100);
+            
+            // Check for guest card element container
+            var checkGuestContainer = setInterval(function() {
+                if ($('#guest-card-element').length > 0 && !self.guestCardElementMounted) {
+                    try {
+                        self.guestCardElement.mount('#guest-card-element');
+                        self.guestCardElementMounted = true;
+                        console.log('Guest card element mounted');
+                        clearInterval(checkGuestContainer);
+                    } catch (e) {
+                        console.log('Failed to mount guest card element:', e);
+                    }
+                }
+            }, 100);
+            
+            // Clear intervals after 10 seconds to prevent infinite checking
+            setTimeout(function() {
+                clearInterval(checkRegularContainer);
+                clearInterval(checkGuestContainer);
+            }, 10000);
         },
         
         bindEvents: function() {
@@ -845,16 +899,16 @@
             // Show payment form
             $('#wp-lms-payment-form').show();
             
-            // Always create a fresh card element
-            if (this.cardElement) {
+            // Mount card element if not already mounted
+            if (!this.cardElementMounted && $('#card-element').length > 0) {
                 try {
-                    this.cardElement.unmount();
+                    this.cardElement.mount('#card-element');
+                    this.cardElementMounted = true;
+                    console.log('Card element mounted on demand');
                 } catch (e) {
-                    // Element might already be unmounted
+                    console.log('Failed to mount card element on demand:', e);
                 }
             }
-            this.cardElement = this.elements.create('card');
-            this.cardElement.mount('#card-element');
         },
         
         handlePaymentSubmit: function() {
@@ -924,14 +978,8 @@
             // Re-enable all purchase buttons
             $('#wp-lms-purchase-btn-standard, #wp-lms-purchase-btn-premium').prop('disabled', false).removeClass('disabled');
             
-            // Hide payment form
+            // Hide payment form (but keep card element mounted)
             $('#wp-lms-payment-form').hide();
-            
-            // Unmount card element
-            if (this.cardElement) {
-                this.cardElement.unmount();
-                this.cardElement = null;
-            }
             
             // Clear any error messages
             $('#wp-lms-payment-status').empty();
@@ -970,16 +1018,16 @@
             // Show payment form
             $('#wp-lms-guest-purchase-form').show();
             
-            // Always create a fresh card element
-            if (this.guestCardElement) {
+            // Mount guest card element if not already mounted
+            if (!this.guestCardElementMounted && $('#guest-card-element').length > 0) {
                 try {
-                    this.guestCardElement.unmount();
+                    this.guestCardElement.mount('#guest-card-element');
+                    this.guestCardElementMounted = true;
+                    console.log('Guest card element mounted on demand');
                 } catch (e) {
-                    // Element might already be unmounted
+                    console.log('Failed to mount guest card element on demand:', e);
                 }
             }
-            this.guestCardElement = this.elements.create('card');
-            this.guestCardElement.mount('#guest-card-element');
         },
         
         handleGuestPaymentSubmit: function() {
