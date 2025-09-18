@@ -149,14 +149,15 @@ class WP_LMS_Frontend {
         $course_id = $post->ID;
         $user_id = get_current_user_id();
         
-        // Check if user wants to start the course
+        // Check if user wants to start the course OR if user already purchased (direct access)
         $action = isset($_GET['action']) ? $_GET['action'] : '';
         
-        if ($action === 'start' && $user_id && $this->database->has_user_purchased_course($user_id, $course_id)) {
+        // If user is logged in and has purchased the course, show learning interface directly
+        if ($user_id && $this->database->has_user_purchased_course($user_id, $course_id)) {
             return $this->render_learning_interface($course_id, $user_id);
         }
         
-        // Show course overview with purchase/continue button
+        // Show course overview with purchase/continue button for non-purchased courses
         return $this->render_course_overview($course_id, $user_id, $content);
     }
     
