@@ -295,12 +295,26 @@
             var codeElement = document.getElementById('code-display');
             var cleanCode = section.code;
             
-            // If code contains HTML tags, extract plain text
-            if (cleanCode && cleanCode.indexOf('<span class="token') !== -1) {
-                // Create temporary element to extract text content
+            // Decode HTML entities first
+            if (cleanCode) {
+                // Create temporary element to decode HTML entities
                 var tempDiv = document.createElement('div');
                 tempDiv.innerHTML = cleanCode;
-                cleanCode = tempDiv.textContent || tempDiv.innerText || '';
+                cleanCode = tempDiv.innerHTML;
+                
+                // Now decode HTML entities like &lt; &gt; &quot; &amp;
+                cleanCode = cleanCode
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#039;/g, "'")
+                    .replace(/&amp;/g, '&'); // This should be last to avoid double-decoding
+                
+                // If code still contains HTML tags (like syntax highlighting), extract plain text
+                if (cleanCode.indexOf('<span class="token') !== -1) {
+                    tempDiv.innerHTML = cleanCode;
+                    cleanCode = tempDiv.textContent || tempDiv.innerText || '';
+                }
             }
             
             // Set clean code as plain text only
