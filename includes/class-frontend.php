@@ -38,18 +38,20 @@ class WP_LMS_Frontend {
             // Enqueue our frontend script first
             wp_enqueue_script('wp-lms-frontend', plugin_dir_url(__FILE__) . '../assets/js/frontend.js', array('jquery'), '1.0', true);
             
-            // Enqueue Stripe.js
-            wp_enqueue_script('stripe-js', 'https://js.stripe.com/v3/', array(), null, true);
+            // DON'T load Stripe.js immediately - load it dynamically when needed to avoid CSP issues
+            // Stripe.js will be loaded dynamically by JavaScript when user clicks purchase button
             
-            // Localize script for AJAX - this is crucial for progress tracking
-            global $post;
-            wp_localize_script('wp-lms-frontend', 'wp_lms_ajax', array(
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('wp_lms_nonce'),
-                'stripe_publishable_key' => get_option('wp_lms_stripe_publishable_key', ''),
-                'debug' => WP_DEBUG,
-                'course_id' => isset($post) ? $post->ID : null
-            ));
+            // Pass data via data attributes instead of wp_localize_script (CSP-compliant)
+            add_action('wp_footer', function() {
+                global $post;
+                echo '<div id="wp-lms-ajax-data" 
+                           data-ajax-url="' . esc_attr(admin_url('admin-ajax.php')) . '" 
+                           data-nonce="' . esc_attr(wp_create_nonce('wp_lms_nonce')) . '" 
+                           data-stripe-key="' . esc_attr(get_option('wp_lms_stripe_publishable_key', '')) . '" 
+                           data-debug="' . esc_attr(WP_DEBUG ? '1' : '0') . '" 
+                           data-course-id="' . esc_attr(isset($post) ? $post->ID : '') . '" 
+                           style="display: none;"></div>';
+            });
         }
     }
     
@@ -58,75 +60,8 @@ class WP_LMS_Frontend {
      */
     public function hide_course_meta() {
         if (is_singular('lms_course')) {
-            ?>
-            <style type="text/css">
-                /* Hide post meta information on course pages */
-                .single-lms_course .entry-meta,
-                .single-lms_course .post-meta,
-                .single-lms_course .entry-date,
-                .single-lms_course .posted-on,
-                .single-lms_course .byline,
-                .single-lms_course .author,
-                .single-lms_course .entry-footer,
-                .single-lms_course .post-date,
-                .single-lms_course .published,
-                .single-lms_course .updated,
-                .single-lms_course .cat-links,
-                .single-lms_course .tags-links,
-                .single-lms_course .comments-link,
-                .single-lms_course .edit-link,
-                .single-lms_course .post-navigation,
-                .single-lms_course .nav-links {
-                    display: none !important;
-                }
-                
-                /* Hide common theme meta classes */
-                .single-lms_course .meta-info,
-                .single-lms_course .post-info,
-                .single-lms_course .entry-info,
-                .single-lms_course .post-details,
-                .single-lms_course .article-meta,
-                .single-lms_course .post-header-meta {
-                    display: none !important;
-                }
-                
-                /* Hide breadcrumbs if they show post type */
-                .single-lms_course .breadcrumb,
-                .single-lms_course .breadcrumbs {
-                    display: none !important;
-                }
-                
-                /* Hide more specific meta elements */
-                .single-lms_course .entry-header .entry-meta,
-                .single-lms_course .entry-content .entry-meta,
-                .single-lms_course .post-header .post-meta,
-                .single-lms_course .post-content .post-meta,
-                .single-lms_course time,
-                .single-lms_course .time,
-                .single-lms_course .date,
-                .single-lms_course .datetime,
-                .single-lms_course .post-author,
-                .single-lms_course .author-name,
-                .single-lms_course .post-categories,
-                .single-lms_course .post-tags,
-                .single-lms_course .meta-separator,
-                .single-lms_course .meta-divider {
-                    display: none !important;
-                }
-                
-                /* Hide elements that contain date/author info */
-                .single-lms_course p:has(time),
-                .single-lms_course div:has(.entry-date),
-                .single-lms_course span:has(.published) {
-                    display: none !important;
-                }
-                
-                /* Hide any text nodes that might contain date patterns */
-                .single-lms_course .entry-header > *:not(.entry-title):not(h1):not(h2):not(h3) {
-                    display: none !important;
-                }
-            </style>
-            <?php
+            // Move CSS to external file instead of inline style
+            wp_enqueue_style('wp-lms-course-meta-hide', plugin_dir_url(__FILE__) . '../assets/css/course-meta-hide.css', array(), '1.0');
         }
     }
     

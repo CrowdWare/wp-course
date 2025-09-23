@@ -227,19 +227,7 @@ class WP_LMS_Post_Types {
         
         echo '</table>';
         
-        ?>
-        <script>
-        jQuery(document).ready(function($) {
-            $('#course_premium_enabled').change(function() {
-                if ($(this).is(':checked')) {
-                    $('#premium_price_row, #premium_features_row').show();
-                } else {
-                    $('#premium_price_row, #premium_features_row').hide();
-                }
-            });
-        });
-        </script>
-        <?php
+        // JavaScript functionality moved to assets/js/admin.js
     }
     
     public function chapter_details_callback($post) {
@@ -346,24 +334,9 @@ class WP_LMS_Post_Types {
         echo '</div>';
         echo '<button type="button" id="add-code-section" class="button">' . __('Add Code Section', 'wp-lms') . '</button>';
         
-        ?>
-        <script>
-        jQuery(document).ready(function($) {
-            var sectionIndex = <?php echo (count($code_sections) ?: 1); ?>;
-            
-            $("#add-code-section").click(function() {
-                var template = <?php echo json_encode($this->get_code_section_template()); ?>;
-                var html = template.replace(/\[INDEX\]/g, sectionIndex);
-                $("#code-sections-container").append(html);
-                sectionIndex++;
-            });
-            
-            $(document).on("click", ".remove-code-section", function() {
-                $(this).closest(".code-section").remove();
-            });
-        });
-        </script>
-        <?php
+        // JavaScript functionality moved to assets/js/admin.js
+        // Pass data to JavaScript via data attributes
+        echo '<div id="code-sections-data" data-section-count="' . (count($code_sections) ?: 1) . '" data-template="' . esc_attr(json_encode($this->get_code_section_template())) . '" style="display: none;"></div>';
     }
     
     private function render_code_section($index, $section) {

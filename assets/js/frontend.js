@@ -771,25 +771,73 @@
         guestCardElementMounted: false,
         
         init: function() {
-            if (typeof Stripe === 'undefined') {
-                console.error('Stripe.js not loaded');
+            console.log('WP_LMS_Purchase.init() called');
+            
+            // Get data from data attributes instead of wp_localize_script
+            var ajaxData = document.getElementById('wp-lms-ajax-data');
+            if (!ajaxData) {
+                console.error('wp-lms-ajax-data element not found');
                 return;
             }
             
-            // Initialize Stripe (publishable key should be localized from PHP)
-            if (wp_lms_ajax.stripe_publishable_key) {
-                this.stripe = Stripe(wp_lms_ajax.stripe_publishable_key);
-                this.elements = this.stripe.elements();
-                this.bindEvents();
-                this.initializeCardElements();
+            // Create wp_lms_ajax object from data attributes for compatibility
+            window.wp_lms_ajax = {
+                ajax_url: ajaxData.getAttribute('data-ajax-url'),
+                nonce: ajaxData.getAttribute('data-nonce'),
+                stripe_publishable_key: ajaxData.getAttribute('data-stripe-key'),
+                debug: ajaxData.getAttribute('data-debug') === '1',
+                course_id: ajaxData.getAttribute('data-course-id')
+            };
+            
+            console.log('wp_lms_ajax from data attributes:', wp_lms_ajax);
+            
+            // Don't initialize Stripe immediately - load it dynamically when needed
+            this.bindEvents();
+            console.log('Purchase events bound - Stripe will be loaded when needed');
+        },
+        
+        // Load Stripe.js dynamically to avoid CSP issues
+        loadStripe: function(callback) {
+            var self = this;
+            
+            if (typeof Stripe !== 'undefined') {
+                // Stripe already loaded
+                if (!this.stripe && wp_lms_ajax.stripe_publishable_key) {
+                    this.stripe = Stripe(wp_lms_ajax.stripe_publishable_key);
+                    this.elements = this.stripe.elements();
+                    this.initializeCardElements();
+                }
+                callback(true);
+                return;
             }
+            
+            // Load Stripe.js dynamically
+            var script = document.createElement('script');
+            script.src = 'https://js.stripe.com/v3/';
+            script.onload = function() {
+                console.log('Stripe.js loaded dynamically');
+                if (wp_lms_ajax.stripe_publishable_key) {
+                    self.stripe = Stripe(wp_lms_ajax.stripe_publishable_key);
+                    self.elements = self.stripe.elements();
+                    self.initializeCardElements();
+                    callback(true);
+                } else {
+                    console.error('Stripe publishable key not found');
+                    callback(false);
+                }
+            };
+            script.onerror = function() {
+                console.error('Failed to load Stripe.js');
+                callback(false);
+            };
+            document.head.appendChild(script);
         },
         
         // Initialize card elements once and keep them stable
         initializeCardElements: function() {
-            // Create card elements once
+            // Create only ONE card element - we'll reuse it for both regular and guest purchases
             this.cardElement = this.elements.create('card');
-            this.guestCardElement = this.elements.create('card');
+            this.guestCardElement = null; // Don't create a second one
             
             // Mount them when their containers become available
             this.mountCardElementsWhenReady();
@@ -813,28 +861,15 @@
                 }
             }, 100);
             
-            // Check for guest card element container
-            var checkGuestContainer = setInterval(function() {
-                if ($('#guest-card-element').length > 0 && !self.guestCardElementMounted) {
-                    try {
-                        self.guestCardElement.mount('#guest-card-element');
-                        self.guestCardElementMounted = true;
-                        console.log('Guest card element mounted');
-                        clearInterval(checkGuestContainer);
-                    } catch (e) {
-                        console.log('Failed to mount guest card element:', e);
-                    }
-                }
-            }, 100);
-            
             // Clear intervals after 10 seconds to prevent infinite checking
             setTimeout(function() {
                 clearInterval(checkRegularContainer);
-                clearInterval(checkGuestContainer);
             }, 10000);
         },
         
         bindEvents: function() {
+            console.log('Binding purchase events...');
+            
             $(document).on('click', '#wp-lms-purchase-btn-standard, #wp-lms-purchase-btn-premium', this.handlePurchaseClick.bind(this));
             $(document).on('click', '#submit-payment', this.handlePaymentSubmit.bind(this));
             $(document).on('click', '#cancel-payment', this.handlePaymentCancel.bind(this));
@@ -843,6 +878,37 @@
             $(document).on('click', '.wp-lms-guest-purchase-btn', this.handleGuestPurchaseClick.bind(this));
             $(document).on('click', '#submit-guest-payment', this.handleGuestPaymentSubmit.bind(this));
             $(document).on('click', '#cancel-guest-payment', this.handleGuestPaymentCancel.bind(this));
+            
+            // Continue course button
+            $(document).on('click', '.wp-lms-continue-btn', this.handleContinueClick.bind(this));
+            
+            console.log('Purchase events bound successfully');
+            
+            // Test if buttons exist
+            setTimeout(function() {
+                var standardBtn = $('#wp-lms-purchase-btn-standard');
+                var premiumBtn = $('#wp-lms-purchase-btn-premium');
+                var guestBtns = $('.wp-lms-guest-purchase-btn');
+                
+                console.log('Button check:');
+                console.log('Standard button found:', standardBtn.length > 0);
+                console.log('Premium button found:', premiumBtn.length > 0);
+                console.log('Guest buttons found:', guestBtns.length);
+                
+                if (standardBtn.length > 0) {
+                    console.log('Standard button data:', {
+                        courseId: standardBtn.data('course-id'),
+                        isPremium: standardBtn.data('is-premium')
+                    });
+                }
+                
+                if (premiumBtn.length > 0) {
+                    console.log('Premium button data:', {
+                        courseId: premiumBtn.data('course-id'),
+                        isPremium: premiumBtn.data('is-premium')
+                    });
+                }
+            }, 1000);
         },
         
         handlePurchaseClick: function(e) {
@@ -854,10 +920,20 @@
             this.selectedCourseId = courseId;
             this.selectedIsPremium = isPremium;
             
-            this.createPaymentIntent(courseId, isPremium);
+            // Load Stripe.js dynamically when user clicks purchase button
+            var self = this;
+            this.loadStripe(function(success) {
+                if (success) {
+                    self.showPaymentForm();
+                } else {
+                    self.showError('Fehler beim Laden der Zahlungskomponenten. Bitte versuchen Sie es erneut.');
+                }
+            });
         },
         
         createPaymentIntent: function(courseId, isPremium) {
+            console.log('Creating payment intent for course:', courseId, 'isPremium:', isPremium);
+            
             $.ajax({
                 url: wp_lms_ajax.ajax_url,
                 type: 'POST',
@@ -868,12 +944,23 @@
                     nonce: wp_lms_ajax.nonce
                 },
                 success: function(response) {
+                    console.log('Payment intent response:', response);
                     if (response.success) {
+                        console.log('Payment intent created successfully:', response.data.payment_intent_id);
                         WP_LMS_Purchase.paymentIntentId = response.data.payment_intent_id;
                         WP_LMS_Purchase.showPaymentForm();
                     } else {
+                        console.error('Payment intent creation failed:', response.data);
                         WP_LMS_Purchase.showError(response.data);
                     }
+                },
+                error: function(xhr, status, error) {
+                    console.error('AJAX error:', {
+                        status: status,
+                        error: error,
+                        responseText: xhr.responseText
+                    });
+                    WP_LMS_Purchase.showError('Netzwerkfehler: ' + error);
                 }
             });
         },
@@ -927,43 +1014,95 @@
         
         handlePaymentSubmit: function() {
             console.log('Payment submit clicked');
-            console.log('Payment Intent ID:', this.paymentIntentId);
-            console.log('Card Element:', this.cardElement);
-            
-            if (!this.paymentIntentId) {
-                $('#card-errors').text('Fehler: Keine Zahlungsabsicht gefunden. Bitte versuchen Sie es erneut.');
-                return;
-            }
             
             if (!this.cardElement) {
                 $('#card-errors').text('Fehler: Kreditkartenfeld nicht verfügbar. Bitte laden Sie die Seite neu.');
                 return;
             }
             
-            // In test mode, skip Stripe validation and directly confirm payment
-            if (this.paymentIntentId.startsWith('pi_test_')) {
-                console.log('Test mode - skipping Stripe validation');
-                this.confirmPayment();
-                return;
-            }
+            // Clear any previous errors
+            $('#card-errors').empty();
             
-            // Real Stripe payment for live mode
-            this.stripe.confirmCardPayment(this.paymentIntentId, {
-                payment_method: {
-                    card: this.cardElement
+            // Disable submit button to prevent double-clicks
+            $('#submit-payment').prop('disabled', true).text('Verarbeitung...');
+            
+            // Now create the payment intent when user actually submits
+            this.createPaymentIntentAndProcess();
+        },
+        
+        createPaymentIntentAndProcess: function() {
+            var self = this;
+            
+            console.log('Creating payment intent for course:', this.selectedCourseId, 'isPremium:', this.selectedIsPremium);
+            
+            $.ajax({
+                url: wp_lms_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'create_payment_intent',
+                    course_id: this.selectedCourseId,
+                    is_premium: this.selectedIsPremium,
+                    nonce: wp_lms_ajax.nonce
+                },
+                success: function(response) {
+                    console.log('Payment intent response:', response);
+                    if (response.success) {
+                        console.log('Payment intent created successfully:', response.data.payment_intent_id);
+                        self.paymentIntentId = response.data.payment_intent_id;
+                        self.clientSecret = response.data.client_secret; // Store client_secret
+                        console.log('Client secret received:', self.clientSecret);
+                        self.processPayment();
+                    } else {
+                        console.error('Payment intent creation failed:', response.data);
+                        self.showError(response.data);
+                        self.resetSubmitButton();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('AJAX error:', {
+                        status: status,
+                        error: error,
+                        responseText: xhr.responseText
+                    });
+                    self.showError('Netzwerkfehler: ' + error);
+                    self.resetSubmitButton();
                 }
-            }).then(function(result) {
-                if (result.error) {
-                    console.error('Stripe error:', result.error);
-                    $('#card-errors').text(result.error.message);
-                } else {
-                    console.log('Stripe payment successful');
-                    WP_LMS_Purchase.confirmPayment();
-                }
-            }).catch(function(error) {
-                console.error('Stripe promise error:', error);
-                $('#card-errors').text('Zahlungsfehler: ' + error.message);
             });
+        },
+        
+        processPayment: function() {
+            var self = this;
+            
+            // Check if we have a client_secret (real Stripe payment intent)
+            if (this.clientSecret && this.clientSecret.indexOf('_secret_') !== -1) {
+                console.log('Real Stripe payment - using client_secret');
+                this.stripe.confirmCardPayment(this.clientSecret, {
+                    payment_method: {
+                        card: this.cardElement
+                    }
+                }).then(function(result) {
+                    if (result.error) {
+                        console.error('Stripe error:', result.error);
+                        $('#card-errors').text(result.error.message);
+                        self.resetSubmitButton();
+                    } else {
+                        console.log('Stripe payment successful');
+                        self.confirmPayment();
+                    }
+                }).catch(function(error) {
+                    console.error('Stripe promise error:', error);
+                    $('#card-errors').text('Zahlungsfehler: ' + error.message);
+                    self.resetSubmitButton();
+                });
+            } else {
+                // Fallback mode or test mode without real client_secret
+                console.log('Fallback/Test mode - skipping Stripe validation');
+                this.confirmPayment();
+            }
+        },
+        
+        resetSubmitButton: function() {
+            $('#submit-payment').prop('disabled', false).text('Kauf abschließen');
         },
         
         confirmPayment: function() {
@@ -1013,8 +1152,15 @@
             this.selectedPrice = price;
             this.selectedCurrency = currency;
             
-            // Show guest payment form
-            this.showGuestPaymentForm();
+            // Load Stripe.js dynamically when user clicks guest purchase button
+            var self = this;
+            this.loadStripe(function(success) {
+                if (success) {
+                    self.showGuestPaymentForm();
+                } else {
+                    self.showError('Fehler beim Laden der Zahlungskomponenten. Bitte versuchen Sie es erneut.');
+                }
+            });
         },
         
         showGuestPaymentForm: function() {
@@ -1032,14 +1178,21 @@
             // Show payment form
             $('#wp-lms-guest-purchase-form').show();
             
-            // Mount guest card element if not already mounted
+            // Reuse the same card element for guest purchases
             if (!this.guestCardElementMounted && $('#guest-card-element').length > 0) {
                 try {
-                    this.guestCardElement.mount('#guest-card-element');
+                    // Unmount from regular container if mounted there
+                    if (this.cardElementMounted) {
+                        this.cardElement.unmount();
+                        this.cardElementMounted = false;
+                    }
+                    
+                    // Mount to guest container
+                    this.cardElement.mount('#guest-card-element');
                     this.guestCardElementMounted = true;
-                    console.log('Guest card element mounted on demand');
+                    console.log('Card element mounted to guest container');
                 } catch (e) {
-                    console.log('Failed to mount guest card element on demand:', e);
+                    console.log('Failed to mount card element to guest container:', e);
                 }
             }
         },
@@ -1181,6 +1334,15 @@
         
         showSuccess: function(message) {
             $('#wp-lms-payment-status').html('<div class="success">' + message + '</div>');
+        },
+        
+        handleContinueClick: function(e) {
+            var button = $(e.target);
+            var courseUrl = button.data('course-url');
+            
+            if (courseUrl) {
+                window.location.href = courseUrl;
+            }
         }
     };
 

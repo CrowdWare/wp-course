@@ -108,99 +108,16 @@ class WP_LMS_SFTP_Handler {
             <?php endif; ?>
         </div>
         
-        <script>
-        jQuery(document).ready(function($) {
-            $('.upload-wasm-btn').click(function() {
-                var button = $(this);
-                var sectionIndex = button.data('section-index');
-                var lessonId = button.data('lesson-id');
-                var fileInput = $('.wasm-file-input[data-section-index="' + sectionIndex + '"]');
-                var file = fileInput[0].files[0];
-                
-                if (!file) {
-                    alert('<?php _e('Please select a file to upload.', 'wp-lms'); ?>');
-                    return;
-                }
-                
-                var formData = new FormData();
-                formData.append('action', 'upload_wasm_file');
-                formData.append('lesson_id', lessonId);
-                formData.append('section_index', sectionIndex);
-                formData.append('wasm_file', file);
-                formData.append('nonce', '<?php echo wp_create_nonce('upload_wasm_file'); ?>');
-                
-                var progressContainer = button.closest('.wasm-section').find('.upload-progress');
-                var resultContainer = button.closest('.wasm-section').find('.upload-result');
-                
-                button.prop('disabled', true);
-                progressContainer.show();
-                resultContainer.empty();
-                
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    xhr: function() {
-                        var xhr = new window.XMLHttpRequest();
-                        xhr.upload.addEventListener('progress', function(evt) {
-                            if (evt.lengthComputable) {
-                                var percentComplete = evt.loaded / evt.total * 100;
-                                progressContainer.find('.progress-fill').css('width', percentComplete + '%');
-                                progressContainer.find('.progress-text').text(Math.round(percentComplete) + '%');
-                            }
-                        }, false);
-                        return xhr;
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            resultContainer.html('<div class="notice notice-success"><p>' + response.data.message + '</p></div>');
-                            setTimeout(function() {
-                                location.reload();
-                            }, 2000);
-                        } else {
-                            resultContainer.html('<div class="notice notice-error"><p>' + response.data + '</p></div>');
-                        }
-                    },
-                    error: function() {
-                        resultContainer.html('<div class="notice notice-error"><p><?php _e('Upload failed. Please try again.', 'wp-lms'); ?></p></div>');
-                    },
-                    complete: function() {
-                        button.prop('disabled', false);
-                        progressContainer.hide();
-                    }
-                });
-            });
-            
-            $('.delete-wasm-btn').click(function() {
-                if (!confirm('<?php _e('Are you sure you want to delete this WASM file?', 'wp-lms'); ?>')) {
-                    return;
-                }
-                
-                var button = $(this);
-                var wasmId = button.data('wasm-id');
-                
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'POST',
-                    data: {
-                        action: 'delete_wasm_file',
-                        wasm_id: wasmId,
-                        nonce: '<?php echo wp_create_nonce('delete_wasm_file'); ?>'
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            button.closest('.current-wasm-file').remove();
-                        } else {
-                            alert(response.data);
-                        }
-                    }
-                });
-            });
-        });
-        </script>
         <?php
+        // JavaScript functionality moved to assets/js/admin.js
+        // Pass nonces via data attributes
+        echo '<div id="wasm-upload-data" 
+                   data-upload-nonce="' . wp_create_nonce('upload_wasm_file') . '" 
+                   data-delete-nonce="' . wp_create_nonce('delete_wasm_file') . '" 
+                   data-upload-text="' . esc_attr(__('Please select a file to upload.', 'wp-lms')) . '"
+                   data-delete-confirm="' . esc_attr(__('Are you sure you want to delete this WASM file?', 'wp-lms')) . '"
+                   data-upload-failed="' . esc_attr(__('Upload failed. Please try again.', 'wp-lms')) . '"
+                   style="display: none;"></div>';
     }
     
     /**
@@ -539,22 +456,7 @@ class WP_LMS_SFTP_Handler {
         <div id="wasm-content"></div>
     </div>
     
-    <script>
-        async function loadWasm() {
-            try {
-                const wasmModule = await WebAssembly.instantiateStreaming(fetch("' . $wasm_url . '"));
-                document.getElementById("loading").style.display = "none";
-                // Initialize your WASM module here
-                // This is a basic template - you\'ll need to customize based on your Kotlin Compose WASM output
-            } catch (error) {
-                console.error("Failed to load WASM:", error);
-                document.getElementById("loading").style.display = "none";
-                document.getElementById("error").style.display = "block";
-            }
-        }
-        
-        loadWasm();
-    </script>
+    <!-- WASM loading functionality moved to external JavaScript file -->
 </body>
 </html>';
         

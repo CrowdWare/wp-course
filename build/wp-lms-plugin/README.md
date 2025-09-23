@@ -165,7 +165,7 @@ Für Support und Fragen:
 
 ## Changelog
 
-### Version 1.0.114
+### Version 1.0.133
 - Initiale Veröffentlichung
 - Vollständiges LMS mit Kursen, Kapiteln und Lektionen
 - Stripe-Zahlungsintegration
